@@ -1,0 +1,110 @@
+image: python:3.9
+
+stages:
+  - quality
+  - security
+  - test
+  - deploy
+
+variables:
+  PIP_CACHE_DIR: "$CI_PROJECT_DIR/.pip-cache"
+  PYTHONPATH: "$CI_PROJECT_DIR"
+
+cache:
+  paths:
+    - .pip-cache/
+
+before_script:
+  - python -V
+  - pip install --upgrade pip
+  - pip install -r requirements.txt
+  - pip install -e .
+
+code-quality:
+  stage: quality
+  script:
+    - python -m ps2 check -p . --verbose
+  artifacts:
+    paths:
+      - ps2_report.json
+    expire_in: 1 week
+
+duplication-check:
+  stage: quality
+  script:
+    - python -m ps2 duplications -p .
+  artifacts:
+    paths:
+      - ps2_report.json
+    expire_in: 1 week
+
+import-check:
+  stage: quality
+  script:
+    - python -m ps2 imports -p .
+  artifacts:
+    paths:
+      - ps2_report.json
+    expire_in: 1 week
+
+security-scan:
+  stage: security
+  script:
+    - python -m ps2 security -p . --verbose
+  artifacts:
+    paths:
+      - ps2_report.json
+    expire_in: 1 week
+
+test-python-3.8:
+  stage: test
+  image: python:3.8
+  script:
+    - pip install pytest pytest-cov
+    - pytest --cov=ps2 --cov-report=xml
+  artifacts:
+    paths:
+      - coverage.xml
+    reports:
+      coverage_report:
+        coverage_format: cobertura
+        path: coverage.xml
+
+test-python-3.9:
+  stage: test
+  image: python:3.9
+  script:
+    - pip install pytest pytest-cov
+    - pytest --cov=ps2 --cov-report=xml
+  artifacts:
+    paths:
+      - coverage.xml
+    reports:
+      coverage_report:
+        coverage_format: cobertura
+        path: coverage.xml
+
+test-python-3.10:
+  stage: test
+  image: python:3.10
+  script:
+    - pip install pytest pytest-cov
+    - pytest --cov=ps2 --cov-report=xml
+  artifacts:
+    paths:
+      - coverage.xml
+    reports:
+      coverage_report:
+        coverage_format: cobertura
+        path: coverage.xml
+
+pages:
+  stage: deploy
+  script:
+    - python -m ps2 report -p . --output html --output-file public/index.html --all
+  artifacts:
+    paths:
+      - public
+  only:
+    - main
+    - master

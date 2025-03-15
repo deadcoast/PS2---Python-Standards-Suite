@@ -1,0 +1,70 @@
+#!/bin/sh
+# Python Standards Suite (PS2) Git post-checkout hook
+#
+# This hook runs after checkout to ensure the development environment is up to date.
+# It checks for dependency changes and updates if needed.
+
+# Arguments passed to the hook:
+# $1 - Previous HEAD (hash)
+# $2 - New HEAD (hash)
+# $3 - Flag (1 for branch checkout, 0 for file checkout)
+
+# Only run on branch checkout (not file checkout)
+if [ "$3" -ne 1 ]; then
+    exit 0
+fi
+
+# Get the root directory of the git repository
+ROOT_DIR=$(git rev-parse --show-toplevel)
+cd "$ROOT_DIR" || exit 1
+
+# Check if requirements.txt exists
+REQUIREMENTS_FILE="requirements.txt"
+if [ ! -f "$REQUIREMENTS_FILE" ]; then
+    # Try alternate names
+    if [ -f "requirements-dev.txt" ]; then
+        REQUIREMENTS_FILE="requirements-dev.txt"
+    elif [ -f "requirements/dev.txt" ]; then
+        REQUIREMENTS_FILE="requirements/dev.txt"
+    else
+        echo "No requirements file found. Skipping dependency check."
+        exit 0
+    fi
+fi
+
+# Check if requirements.txt has changed
+REQUIREMENTS_CHANGED=$(git diff --name-only "$1" "$2" | grep -E "requirements.*\.txt$")
+
+if [ -n "$REQUIREMENTS_CHANGED" ]; then
+    echo "Dependencies have changed. Checking for updates..."
+    
+    # Check if we're in a virtual environment
+    if [ -n "$VIRTUAL_ENV" ]; then
+        echo "Virtual environment detected: $VIRTUAL_ENV"
+        
+        # Ask the user if they want to update dependencies
+        echo "Would you like to update dependencies? (y/n)"
+        read -r REPLY
+        
+        if [ "$REPLY" = "y" ] || [ "$REPLY" = "Y" ]; then
+            echo "Updating dependencies..."
+            pip install -r "$REQUIREMENTS_FILE"
+            echo "Dependencies updated successfully."
+        else
+            echo "Dependencies not updated. Run 'pip install -r $REQUIREMENTS_FILE' manually if needed."
+        fi
+    else
+        echo "No active virtual environment detected."
+        echo "Please activate your virtual environment and run 'pip install -r $REQUIREMENTS_FILE'."
+    fi
+fi
+
+# Check if PS2 configuration has changed
+PS2_CONFIG_CHANGED=$(git diff --name-only "$1" "$2" | grep -E "\.ps2\.(json|yaml|yml|toml)$")
+
+if [ -n "$PS2_CONFIG_CHANGED" ]; then
+    echo "PS2 configuration has changed."
+    echo "Run 'ps2 all' to validate your project with the updated configuration."
+fi
+
+exit 0

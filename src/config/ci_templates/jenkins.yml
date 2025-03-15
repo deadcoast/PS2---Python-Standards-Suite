@@ -1,0 +1,114 @@
+pipeline {
+    agent {
+        docker {
+            image 'python:3.9'
+        }
+    }
+    
+    environment {
+        PYTHONPATH = "${WORKSPACE}"
+    }
+    
+    stages {
+        stage('Setup') {
+            steps {
+                sh 'python -m pip install --upgrade pip'
+                sh 'pip install -r requirements.txt'
+                sh 'pip install -e .'
+                sh 'pip install pytest pytest-cov'
+            }
+        }
+        
+        stage('Code Quality') {
+            parallel {
+                stage('Style Check') {
+                    steps {
+                        sh 'python -m ps2 check -p . --output json --output-file quality_report.json'
+                    }
+                    post {
+                        always {
+                            archiveArtifacts artifacts: 'quality_report.json', fingerprint: true
+                        }
+                    }
+                }
+                
+                stage('Duplication Check') {
+                    steps {
+                        sh 'python -m ps2 duplications -p . --output json --output-file duplication_report.json'
+                    }
+                    post {
+                        always {
+                            archiveArtifacts artifacts: 'duplication_report.json', fingerprint: true
+                        }
+                    }
+                }
+                
+                stage('Import Check') {
+                    steps {
+                        sh 'python -m ps2 imports -p . --output json --output-file import_report.json'
+                    }
+                    post {
+                        always {
+                            archiveArtifacts artifacts: 'import_report.json', fingerprint: true
+                        }
+                    }
+                }
+            }
+        }
+        
+        stage('Security Scan') {
+            steps {
+                sh 'python -m ps2 security -p . --output json --output-file security_report.json'
+            }
+            post {
+                always {
+                    archiveArtifacts artifacts: 'security_report.json', fingerprint: true
+                }
+            }
+        }
+        
+        stage('Test') {
+            steps {
+                sh 'pytest --junitxml=test-results.xml --cov=ps2 --cov-report=xml'
+            }
+            post {
+                always {
+                    junit 'test-results.xml'
+                    archiveArtifacts artifacts: 'coverage.xml', fingerprint: true
+                    publishCoverage adapters: [cobertura('coverage.xml')]
+                }
+            }
+        }
+        
+        stage('Generate Report') {
+            steps {
+                sh 'python -m ps2 report -p . --output html --output-file ps2_report.html --all'
+            }
+            post {
+                always {
+                    archiveArtifacts artifacts: 'ps2_report.html', fingerprint: true
+                    publishHTML([
+                        allowMissing: false,
+                        alwaysLinkToLastBuild: false,
+                        keepAll: true,
+                        reportDir: '.',
+                        reportFiles: 'ps2_report.html',
+                        reportName: 'PS2 Report'
+                    ])
+                }
+            }
+        }
+    }
+    
+    post {
+        always {
+            cleanWs()
+        }
+        success {
+            echo 'Pipeline completed successfully!'
+        }
+        failure {
+            echo 'Pipeline failed!'
+        }
+    }
+}

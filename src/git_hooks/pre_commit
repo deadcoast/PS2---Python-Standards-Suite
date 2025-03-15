@@ -1,0 +1,52 @@
+#!/bin/sh
+# Python Standards Suite (PS2) Git pre-commit hook
+#
+# This hook runs PS2 checks before committing to ensure code quality standards
+# are met. It will abort the commit if any checks fail, unless forced with --no-verify.
+
+# Get the root directory of the git repository
+ROOT_DIR=$(git rev-parse --show-toplevel)
+
+# Find Python files that are staged for commit
+STAGED_PY_FILES=$(git diff --cached --name-only --diff-filter=ACMR | grep -E '\.py$')
+
+# If there are no Python files staged, exit with success
+if [ -z "$STAGED_PY_FILES" ]; then
+    echo "No Python files staged for commit. Skipping PS2 checks."
+    exit 0
+fi
+
+# Run PS2 checks on the staged Python files
+echo "Running PS2 checks on staged Python files..."
+
+# Create a temporary file list for staged Python files
+TMP_FILE=$(mktemp)
+echo "$STAGED_PY_FILES" > "$TMP_FILE"
+
+# Run checks
+cd "$ROOT_DIR" || exit 1
+
+# Style check
+echo "Running style checks..."
+python -m ps2 check --verbose --fix --files "$TMP_FILE"
+CHECK_STATUS=$?
+
+# Import check
+echo "Running import checks..."
+python -m ps2 imports --verbose --fix --files "$TMP_FILE"
+IMPORT_STATUS=$?
+
+# Combine exit statuses
+if [ $CHECK_STATUS -ne 0 ] || [ $IMPORT_STATUS -ne 0 ]; then
+    echo "PS2 checks failed. Please fix the issues before committing."
+    echo "You can temporarily bypass this hook with 'git commit --no-verify'"
+    rm -f "$TMP_FILE"
+    exit 1
+fi
+
+# Clean up
+rm -f "$TMP_FILE"
+
+# All checks passed
+echo "PS2 checks passed. Proceeding with commit."
+exit 0

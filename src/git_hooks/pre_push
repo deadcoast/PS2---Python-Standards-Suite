@@ -1,0 +1,75 @@
+#!/bin/sh
+# Python Standards Suite (PS2) Git pre-push hook
+#
+# This hook runs more comprehensive PS2 checks before pushing to ensure 
+# code quality, security, and test coverage requirements are met.
+# It will abort the push if any checks fail, unless forced with --no-verify.
+
+# Get the root directory of the git repository
+ROOT_DIR=$(git rev-parse --show-toplevel)
+cd "$ROOT_DIR" || exit 1
+
+# Check if we're pushing to a protected branch
+PROTECTED_BRANCHES="main master develop"
+CURRENT_BRANCH=$(git symbolic-ref HEAD | sed -e 's,.*/\(.*\),\1,')
+
+for branch in $PROTECTED_BRANCHES; do
+    if [ "$CURRENT_BRANCH" = "$branch" ]; then
+        echo "Pushing to protected branch: $branch"
+        echo "Running comprehensive checks..."
+        
+        # Run more extensive tests for protected branches
+        COMPREHENSIVE=true
+        break
+    fi
+done
+
+# Run tests
+echo "Running tests..."
+python -m pytest
+TEST_STATUS=$?
+
+if [ $TEST_STATUS -ne 0 ]; then
+    echo "Tests failed. Please fix the failing tests before pushing."
+    echo "You can temporarily bypass this hook with 'git push --no-verify'"
+    exit 1
+fi
+
+# Run PS2 checks
+echo "Running PS2 checks..."
+python -m ps2 check
+CHECK_STATUS=$?
+
+# Run PS2 import checks
+echo "Running import checks..."
+python -m ps2 imports
+IMPORT_STATUS=$?
+
+# For comprehensive checks, also run security and duplication checks
+if [ "$COMPREHENSIVE" = true ]; then
+    echo "Running security checks..."
+    python -m ps2 security
+    SECURITY_STATUS=$?
+    
+    echo "Running duplication checks..."
+    python -m ps2 duplications
+    DUPLICATION_STATUS=$?
+    
+    # Check combined status
+    if [ $SECURITY_STATUS -ne 0 ] || [ $DUPLICATION_STATUS -ne 0 ]; then
+        echo "Security or duplication checks failed. Please fix the issues before pushing."
+        echo "You can temporarily bypass this hook with 'git push --no-verify'"
+        exit 1
+    fi
+fi
+
+# Check combined status
+if [ $CHECK_STATUS -ne 0 ] || [ $IMPORT_STATUS -ne 0 ]; then
+    echo "PS2 checks failed. Please fix the issues before pushing."
+    echo "You can temporarily bypass this hook with 'git push --no-verify'"
+    exit 1
+fi
+
+# All checks passed
+echo "All PS2 checks passed. Proceeding with push."
+exit 0

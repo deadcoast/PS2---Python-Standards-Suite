@@ -1,0 +1,135 @@
+### Bandit config file
+
+# Set the output format
+format: json
+
+# Set the output file
+output: bandit-results.json
+
+# Filter by severity
+severity_level: medium
+
+# Filter by confidence
+confidence_level: medium
+
+# Number of lines of context to display
+context_lines: 3
+
+# Include test IDs in output
+verbose: true
+
+# List of files or directories to exclude
+exclude_dirs:
+  - .git
+  - .venv
+  - venv
+  - env
+  - .tox
+  - tests
+  - build
+  - dist
+  - docs
+
+# List of file patterns to exclude
+exclude:
+  - "*/test_*.py"
+  - "*/tests/*.py"
+
+# List of test IDs to filter for
+# tests:
+#   - B201
+#   - B301
+
+# List of test IDs to skip
+skips:
+  - B101  # Use of assert detected (often used appropriately in tests)
+  - B404  # Import of subprocess module (often used appropriately)
+  - B603  # subprocess call with shell=True (sometimes necessary)
+
+# Define profiles for different types of code
+profiles:
+  high_security:
+    include:
+      - B602  # subprocess call with shell equals true identified
+      - B603  # subprocess call without shell equals true identified
+      - B301  # pickle module usage
+      - B403  # import xml modules with security vulnerabilities
+      - B307  # eval function usage
+      - B323  # unverified context for SSL
+      - B501  # request with no certificate validation
+      - B506  # yaml load (potential execution of arbitrary code)
+      - B608  # hardcoded SQL query
+      - B608  # hardcoded password
+
+  standard:
+    include:
+      - B101  # assert statements
+      - B102  # exec function usage
+      - B103  # set bad file permissions
+      - B104  # hardcoded bind all interfaces
+      - B105  # hardcoded password string
+      - B106  # hardcoded password funcarg
+      - B107  # hardcoded password default
+      - B108  # hardcoded tmp directory
+      - B110  # try/except/pass detected
+      - B112  # try/except/continue detected
+      - B301  # pickle usage
+      - B302  # marshal usage
+      - B303  # md5 usage
+      - B304  # ciphers with no integrity
+      - B305  # cipher with no authentication
+      - B306  # mktemp usage
+      - B307  # eval usage
+      - B308  # mark safe usage
+      - B309  # httpsconnection with no certification validation
+      - B310  # urllib with no certification validation
+      - B312  # telnetlib usage
+      - B313  # xml.etree.cElementTree usage
+      - B314  # xml.etree.ElementTree usage
+      - B315  # xml.sax usage
+      - B316  # xml.expat usage
+      - B317  # xml.dom.expatbuilder usage
+      - B318  # xml.dom.minidom usage
+      - B319  # xml.dom.pulldom usage
+      - B320  # xml.sax.expatreader usage
+      - B321  # ftplib usage
+      - B323  # unverified context for SSL
+      - B324  # hashlib functions with insecure hashing algorithms
+      - B325  # tempnam usage
+      - B401  # import paramiko
+      - B402  # import ftplib
+      - B403  # import xml.etree
+      - B404  # import subprocess
+      - B405  # import xml.minidom
+      - B406  # import xml.sax
+      - B407  # import xml.expat
+      - B408  # import xml.dom.expatbuilder
+      - B409  # import xml.dom.minidom
+      - B410  # import xml.dom.pulldom
+      - B411  # import xml.sax.expatreader
+      - B412  # import pickle
+      - B413  # import pycrypto
+      - B501  # request with no certification validation
+      - B502  # request with bad certification validation
+      - B503  # ssl with bad version
+      - B504  # ssl with bad defaults
+      - B505  # weak cryptographic key
+      - B506  # yaml.load
+      - B507  # ssh no host key verification
+      - B601  # paramiko calls with policy set to automatically trust
+      - B602  # subprocess with shell equals true
+      - B603  # subprocess without shell equals true
+      - B604  # any other function with shell equals true
+      - B605  # start process with a shell
+      - B606  # start process with no shell
+      - B607  # start process with a partial path
+      - B608  # hardcoded sql query
+      - B609  # linux commands wildcard injection
+      - B610  # django extra used with user input
+      - B611  # django raw string used
+      - B701  # jinja2 autoescape false
+      - B702  # use of mako templates
+      - B703  # django mark safe
+
+# Use the standard profile by default
+profile: standard

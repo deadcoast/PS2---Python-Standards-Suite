@@ -1,0 +1,54 @@
+---
+# Safety configuration file
+
+# Output configuration
+output:
+  # Output format (json, text, compact, full, screen, sarif)
+  format: json
+  
+  # Output report file
+  report: safety-report.json
+  
+  # Whether to include full advisories in the output
+  full_report: true
+
+# Scanning configuration
+scan:
+  # Whether to scan system packages
+  system: false
+  
+  # Whether to scan development packages 
+  dev: true
+  
+  # Path to your requirements files
+  requirements:
+    - requirements.txt
+    - requirements-dev.txt
+
+# Vulnerability handling
+severity:
+  # Minimum severity to report (low, medium, high, critical)
+  threshold: medium
+  
+  # Ignore specific vulnerabilities by ID
+  ignore:
+    - 12345  # Example vulnerability ID to ignore, replace with actual IDs
+
+# API integration
+api:
+  # Whether to allow upload to safety db
+  key_from_env: SAFETY_API_KEY
+  
+  # Telemetry settings
+  telemetry: false
+
+# Miscellaneous settings
+misc:
+  # Continue on error
+  continue_on_error: true
+  
+  # Cache dependency information
+  cache: true
+  
+  # Cache expiration in hours
+  cache_expiry: 24
