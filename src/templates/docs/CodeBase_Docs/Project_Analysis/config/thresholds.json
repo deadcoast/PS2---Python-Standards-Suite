@@ -1,0 +1,233 @@
+{
+    "version": "1.0",
+    "description": "Configuration for code quality thresholds and quality gates",
+    "qualityGates": {
+        "critical": {
+            "description": "Critical quality gates that must not be violated",
+            "thresholds": [
+                {
+                    "metric": "security_issues",
+                    "operator": "<=",
+                    "value": 0,
+                    "blocking": true,
+                    "message": "Security issues must be fixed immediately"
+                },
+                {
+                    "metric": "critical_issues",
+                    "operator": "<=",
+                    "value": 5,
+                    "blocking": true,
+                    "message": "No more than 5 critical issues allowed"
+                },
+                {
+                    "metric": "test_coverage",
+                    "operator": ">=",
+                    "value": 70,
+                    "blocking": true,
+                    "message": "Test coverage must be at least 70%"
+                }
+            ]
+        },
+        "warning": {
+            "description": "Warning thresholds that should be addressed soon",
+            "thresholds": [
+                {
+                    "metric": "important_issues",
+                    "operator": "<=",
+                    "value": 50,
+                    "blocking": false,
+                    "message": "More than 50 important issues detected"
+                },
+                {
+                    "metric": "code_duplication",
+                    "operator": "<=",
+                    "value": 10,
+                    "blocking": false,
+                    "message": "Code duplication should be below 10%"
+                },
+                {
+                    "metric": "test_coverage",
+                    "operator": ">=",
+                    "value": 80,
+                    "blocking": false,
+                    "message": "Test coverage should be at least 80%"
+                }
+            ]
+        },
+        "info": {
+            "description": "Informational thresholds for optimization",
+            "thresholds": [
+                {
+                    "metric": "minor_issues",
+                    "operator": "<=",
+                    "value": 200,
+                    "blocking": false,
+                    "message": "More than 200 minor issues detected"
+                },
+                {
+                    "metric": "documentation_coverage",
+                    "operator": ">=",
+                    "value": 90,
+                    "blocking": false,
+                    "message": "Documentation coverage should be at least 90%"
+                }
+            ]
+        }
+    },
+    "complexityThresholds": {
+        "function": {
+            "cyclomatic": 15,
+            "cognitive": 10,
+            "lines": 100,
+            "parameters": 5,
+            "returns": 3,
+            "nesting_depth": 4,
+            "statements": 50
+        },
+        "file": {
+            "lines": 500,
+            "functions": 20,
+            "classes": 5,
+            "dependencies": 15,
+            "imports": 30
+        },
+        "class": {
+            "methods": 25,
+            "inheritance_depth": 3,
+            "instance_variables": 15,
+            "public_methods": 20
+        }
+    },
+    "maintainabilityThresholds": {
+        "technical_debt_ratio": 5,
+        "comment_ratio": 20,
+        "code_to_test_ratio": 3,
+        "dependencies": {
+            "direct": 50,
+            "transitive": 200,
+            "outdated": 10
+        }
+    },
+    "performanceThresholds": {
+        "bundle_size": {
+            "js": 500,
+            "css": 100,
+            "total": 750,
+            "unit": "KB"
+        },
+        "load_time": {
+            "value": 2,
+            "unit": "seconds"
+        },
+        "time_to_interactive": {
+            "value": 3.5,
+            "unit": "seconds"
+        },
+        "memory_usage": {
+            "value": 100,
+            "unit": "MB"
+        }
+    },
+    "accessibilityThresholds": {
+        "wcag_level": "AA",
+        "violations": {
+            "critical": 0,
+            "serious": 0,
+            "moderate": 5,
+            "minor": 10
+        }
+    },
+    "securityThresholds": {
+        "vulnerabilities": {
+            "critical": 0,
+            "high": 0,
+            "medium": 0,
+            "low": 5
+        },
+        "outdated_dependencies": {
+            "critical": 0,
+            "high": 0,
+            "medium": 5
+        },
+        "owasp_top_10": 0,
+        "cwe_top_25": 0
+    },
+    "testingThresholds": {
+        "coverage": {
+            "lines": 80,
+            "functions": 90,
+            "branches": 75,
+            "statements": 80
+        },
+        "mutation_score": 75,
+        "flaky_tests": {
+            "percentage": 2,
+            "absolute": 5
+        }
+    },
+    "progressThresholds": {
+        "issue_resolution_rate": {
+            "critical": 100,
+            "important": 80,
+            "minor": 50,
+            "unit": "percentage_per_sprint"
+        },
+        "technical_debt_reduction": {
+            "value": 10,
+            "unit": "percentage_per_month"
+        },
+        "regression_introduced": {
+            "value": 3,
+            "unit": "issues_per_release"
+        }
+    },
+    "customThresholds": {
+        "language_specific": {
+            "javascript": {
+                "unused_imports": 0,
+                "console_statements": 0,
+                "prop_types_coverage": 95
+            },
+            "python": {
+                "type_hints_coverage": 80,
+                "docstring_coverage": 90
+            },
+            "csharp": {
+                "disposable_usage": 100,
+                "async_await_consistency": 100
+            }
+        },
+        "team_specific": {
+            "frontend": {
+                "accessibility_coverage": 95,
+                "responsive_tests": 90
+            },
+            "backend": {
+                "api_test_coverage": 95,
+                "endpoint_documentation": 100
+            },
+            "data": {
+                "data_validation_coverage": 100,
+                "query_performance": 90
+            }
+        }
+    },
+    "thresholdAdjustments": {
+        "new_code": {
+            "multiplier": 1.0,
+            "description": "New code must meet all thresholds"
+        },
+        "legacy_code": {
+            "multiplier": 0.8,
+            "description": "Legacy code thresholds are adjusted to 80% of standard"
+        },
+        "critical_path": {
+            "multiplier": 1.2,
+            "description": "Critical path code must exceed standard thresholds by 20%"
+        },
+        "experimental": {
+            "multiplier": 0.7,
+            "description": "Experimental code has temporarily relaxed thresholds"
+        }
+    }
+}

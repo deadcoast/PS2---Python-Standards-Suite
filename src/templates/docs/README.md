@@ -118,13 +118,13 @@ Please make sure your code follows the project's style guidelines.
 
 ## License
 
-This project is licensed under the {license} License - see the [LICENSE](LICENSE) file for details.
+This project is licensed under the MIT License - see the [LICENSE](MIT) file for details.
 
 ## Contact
 
 {author_name} - {author_email}
 
-Project Link: [{project_name}](https://github.com/{github_username}/{project_name})
+Project Link: [PS2---Python-Standards-Suite](https://github.com/deadcoast/PS2---Python-Standards-Suite)
 
 ## Acknowledgments
 

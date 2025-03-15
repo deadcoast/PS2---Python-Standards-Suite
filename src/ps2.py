@@ -6,11 +6,10 @@ This module serves as the central orchestrator for the PS2 system,
 providing a unified interface to access all PS2 functionality.
 """
 
-import os
 import sys
 import logging
 from pathlib import Path
-from typing import Dict, List, Optional, Tuple, Union
+from typing import Dict, List, Optional
 
 from ps2.config import default_settings
 from ps2.core.analyzer import CodeAnalyzer

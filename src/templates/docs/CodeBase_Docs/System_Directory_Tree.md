@@ -7,10 +7,6 @@
 │   ├── 0.11.0/
 │   │   └── 4450673142909114003
 │   └── CACHEDIR.TAG
-├── Docs_Templates/
-│   ├── CodeBase_Docs/
-│   ├── README.md
-│   └── System_Directory_Tree.md
 ├── src/
 │   ├── cli/
 │   │   ├── commands/
@@ -60,24 +56,33 @@
 │   │   ├── security_scanner.py
 │   │   └── task_manager.py
 │   ├── database/
-│   │   └── __init__.py
+│   │   ├── __init__.py
+│   │   ├── metrics_db.py
+│   │   └── schema.py
 │   ├── git_hooks/
 │   │   ├── __init__.py
 │   │   ├── pre_commit
 │   │   └── pre_push
 │   ├── integrations/
 │   │   ├── issue_trackers/
-│   │   │   └── __init__.py
+│   │   │   ├── __init__.py
+│   │   │   ├── github.py
+│   │   │   ├── github_adapter.py
+│   │   │   └── jira.py
 │   │   ├── notifications/
-│   │   │   └── __init__.py
+│   │   │   ├── __init__.py
+│   │   │   └── email.py
 │   │   └── __init__.py
 │   ├── templates/
 │   │   ├── docs/
+│   │   │   ├── CodeBase_Docs/
+│   │   │   ├── tools/
 │   │   │   ├── __init__.py
 │   │   │   └── README.md
 │   │   ├── project/
 │   │   │   ├── __init__.py
 │   │   │   ├── pytest.ini
+│   │   │   ├── setup.py
 │   │   │   └── tox.ini
 │   │   └── __init__.py
 │   ├── utils/
@@ -87,13 +92,12 @@
 │   │   └── metrics.py
 │   ├── __init__.py
 │   ├── ps2.py
-│   ├── ps2_tree.md
 │   └── setup.py
 ├── .windsurfrules.md
 ├── generate_tree.py
 ├── README.md
-└── requirements.txt
-
+├── requirements.txt
+└── rich_directory_tree_python_standards_suite.md
 ```
 
 ## Notes
