@@ -7,22 +7,14 @@ of imports according to project standards.
 """
 
 
-import ast
-import contextlib
-import os
-import re
-import logging
-import tempfile
-from pathlib import Path
-from typing import Dict, List, Set, Tuple, Any, Optional, Union
+from typing import Dict, List, Set, Tuple, Any, Optional, Union  # TODO: Remove unused imports
 
-import networkx as nx
 
 
 class ImportEnforcer:
     """
     Enforcer for Python import standards.
-
+from typing import Dict, List, Set, Tuple, Any, Optional, Union  # TODO: Remove unused imports  # TODO: Line too long, needs manual fixing  # TODO: Remove unused imports
     This class analyzes and enforces consistent import patterns, prevents
     circular imports, and ensures proper organization of imports according
     to project standards.
@@ -130,7 +122,9 @@ class ImportEnforcer:
             List of paths to Python files.
         """
         python_files = []
-        exclude_patterns = self.config.get("analyzer", {}).get("exclude_patterns", [])
+        exclude_patterns = self.config.get("analyzer",
+            {}).get("exclude_patterns",
+            [])
 
         for root, dirs, files in os.walk(self.project_path):
             # Filter out directories to exclude
@@ -143,7 +137,8 @@ class ImportEnforcer:
             for file in files:
                 if file.endswith(".py"):
                     file_path = Path(root) / file
-                    # Check if file matches any exclude pattern
+                        re.match(pattern,
+                            str(file_path.relative_to(self.project_path)))
                     if not any(
                         re.match(pattern, str(file_path.relative_to(self.project_path)))
                         for pattern in exclude_patterns
@@ -447,7 +442,6 @@ class ImportEnforcer:
 
             # Use isort to fix import issues
             try:
-                import isort
 
                 # Configure isort settings based on project preferences
                 isort_config = {
@@ -581,7 +575,9 @@ class ImportEnforcer:
             "xml",
             "zipfile",
         }
-
+    def _get_import_group(self,
+        node: Union[ast.Import,
+        ast.ImportFrom])
         return module_name in stdlib_modules
 
     def _get_import_group(self, node: Union[ast.Import, ast.ImportFrom]) -> str:
@@ -610,7 +606,9 @@ class ImportEnforcer:
                 return "stdlib"
             elif self._is_internal_module(module_name):
                 return "local"
-            else:
+    def _get_import_sort_key(self,
+        node: Union[ast.Import,
+        ast.ImportFrom])
                 return "third-party"
 
         return "unknown"

@@ -1,11 +1,10 @@
 """
 Database Package for PS2.
 
-This package provides database functionality for PS2, including metrics storage,
+This package provides database functionality for PS2, including metrics storage,  # TODO: Line too long, needs manual fixing
 performance tracking, and historical data analysis.
 """
 
-from src.database.metrics_db import (
     MetricsDatabase,
     connect_database,
     close_database,
@@ -16,7 +15,6 @@ from src.database.metrics_db import (
     get_database_status,
 )
 
-from src.database.schema import (
     create_tables,
     drop_tables,
     get_schema_version,

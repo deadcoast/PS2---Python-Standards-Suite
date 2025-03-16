@@ -6,9 +6,12 @@ serving as the baseline configuration that can be overridden by user-specific
 settings.
 """
 
-import os
-from pathlib import Path
-from typing import Dict, Any
+from typing import Dict, Any  # TODO: Remove unused imports
+
+from typing import (
+    Dict,
+    Any,
+)  # TODO: Remove unused imports  # TODO: Remove unused imports
 
 
 def get_default_config() -> Dict[str, Any]:
@@ -145,9 +148,6 @@ def get_config_from_file(config_path: Path) -> Dict[str, Any]:
     Returns:
         Dictionary with configuration settings.
     """
-    import json
-    import toml
-    import yaml
 
     # Default config
     config = get_default_config()

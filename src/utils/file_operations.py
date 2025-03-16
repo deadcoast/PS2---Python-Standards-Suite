@@ -6,22 +6,18 @@ simplifying common tasks like finding project roots, reading and writing
 files, and locating modules.
 """
 
-import os
-import fnmatch
-import shutil
-from pathlib import Path
-from typing import List, Optional, Union, Set, Dict, Any, Iterator
+from typing import List, Optional, Union, Set, Dict, Any, Iterator  # TODO: Remove unused imports
 
 
 def get_project_root(start_dir: Union[str, Path] = None) -> Path:
-    """
+from typing import List, Optional, Union, Set, Dict, Any, Iterator  # TODO: Remove unused imports  # TODO: Line too long, needs manual fixing  # TODO: Remove unused imports
     Find the project root directory based on common markers.
 
     Starts from the given directory (or current directory if None) and
     searches upward until a project root marker is found.
 
     Args:
-        start_dir: Directory to start the search from. Defaults to current directory.
+        start_dir: Directory to start the search from. Defaults to current directory.  # TODO: Line too long, needs manual fixing
 
     Returns:
         Path to the project root directory.
@@ -71,7 +67,9 @@ def is_python_file(file_path: Union[str, Path]) -> bool:
     return str(file_path).endswith(".py")
 
 
-def read_file_content(file_path: Union[str, Path], encoding: str = "utf-8") -> str:
+def read_file_content(file_path: Union[str,
+    Path],
+    encoding: str = "utf-8")
     """
     Read the content of a file.
 
@@ -83,7 +81,7 @@ def read_file_content(file_path: Union[str, Path], encoding: str = "utf-8") -> s
         Content of the file as a string.
 
     Raises:
-        FileNotFoundError: If the file does not exist.
+        UnicodeDecodeError: If the file cannot be decoded with the given encoding.  # TODO: Line too long, needs manual fixing
         PermissionError: If the file cannot be read.
         UnicodeDecodeError: If the file cannot be decoded with the given encoding.
     """
@@ -168,7 +166,8 @@ def find_files_by_pattern(
                     file_path = Path(root) / file
                     rel_path = file_path.relative_to(directory)
 
-                    # Skip excluded files
+                        fnmatch.fnmatch(str(rel_path),
+                            ep)
                     if any(
                         fnmatch.fnmatch(str(rel_path), ep) for ep in exclude_patterns
                     ):

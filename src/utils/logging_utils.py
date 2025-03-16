@@ -6,17 +6,7 @@ throughout the PS2 system, including decorators for function call logging
 and execution time tracking.
 """
 
-import functools
-import inspect
-import logging
-import os
-import sys
-import time
-from datetime import datetime
-from functools import wraps
-from logging.handlers import RotatingFileHandler
-from pathlib import Path
-from typing import Any, Callable, Dict, List, Optional, Union, TypeVar, cast
+from typing import Any, Callable, Dict, List, Optional, Union, TypeVar, cast  # TODO: Remove unused imports
 
 # Type variable for decorator return types
 F = TypeVar("F", bound=Callable[..., Any])
@@ -26,7 +16,7 @@ def setup_logging(
     level: int = logging.INFO,
     log_file: Optional[Union[str, Path]] = None,
     log_format: str = "%(asctime)s - %(name)s - %(levelname)s - %(message)s",
-    date_format: str = "%Y-%m-%d %H:%M:%S",
+from typing import Any, Callable, Dict, List, Optional, Union, TypeVar, cast  # TODO: Remove unused imports  # TODO: Line too long, needs manual fixing  # TODO: Remove unused imports
     use_colors: bool = True,
     max_file_size: int = 10 * 1024 * 1024,  # 10 MB
     backup_count: int = 5,
@@ -36,8 +26,8 @@ def setup_logging(
 
     Args:
         level: Logging level. Defaults to INFO.
-        log_file: Path to log file. If None, logs only to console. Defaults to None.
-        log_format: Log message format. Defaults to standard format with timestamp, name, level, and message.
+        log_file: Path to log file. If None, logs only to console. Defaults to None.  # TODO: Line too long, needs manual fixing
+        log_format: Log message format. Defaults to standard format with timestamp, name, level, and message.  # TODO: Line too long, needs manual fixing
         date_format: Date format for log messages. Defaults to ISO-like format.
         use_colors: Whether to use colored output in console (if supported). Defaults to True.
         max_file_size: Maximum size of log file before rotation (in bytes). Defaults to 10 MB.
@@ -67,10 +57,11 @@ def setup_logging(
     # Use colored output if requested and supported
     if use_colors:
         try:
-            import coloredlogs
 
             coloredlogs.install(
-                level=level, logger=root_logger, fmt=log_format, datefmt=date_format
+                level = (
+                    level, logger=root_logger, fmt=log_format, datefmt=date_format
+                )
             )
         except ImportError:
             # Fall back to standard logging if coloredlogs is not available
@@ -195,7 +186,8 @@ def log_execution_time(level: int = logging.DEBUG) -> Callable[[F], F]:
             finally:
                 # Calculate execution time
                 execution_time = time.time() - start_time
-
+                logger.log(level,
+                    f"{name} executed in {execution_time:.6f} seconds")
                 # Log execution time
                 logger.log(level, f"{name} executed in {execution_time:.6f} seconds")
 

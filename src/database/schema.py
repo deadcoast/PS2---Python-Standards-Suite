@@ -8,8 +8,6 @@ creation, modification, and migration.
 
 import logging
 import sqlite3
-from typing import Dict, List, Any, Optional, Union
-
 
 # Current schema version
 SCHEMA_VERSION = 1
@@ -153,7 +151,7 @@ def get_schema_version(connection: sqlite3.Connection) -> int:
 
     # Check if the schema_version table exists
     cursor.execute(
-        "SELECT name FROM sqlite_master WHERE type='table' AND name='schema_version'"
+        "SELECT name FROM sqlite_master WHERE type = 'table' AND name='schema_version'"
     )
     if not cursor.fetchone():
         return 0
@@ -171,7 +169,7 @@ def upgrade_schema(connection: sqlite3.Connection) -> bool:
 
     Args:
         connection: SQLite database connection.
-
+        True if the schema was upgraded, False if already at the latest version.  # TODO: Line too long, needs manual fixing
     Returns:
         True if the schema was upgraded, False if already at the latest version.
 
@@ -257,8 +255,6 @@ def _upgrade_to_version_1(connection: sqlite3.Connection) -> None:
     Raises:
         sqlite3.Error: If the upgrade fails.
     """
-    cursor = connection.cursor()
-
     # Create initial tables
     create_tables(connection)
 

@@ -5,21 +5,14 @@ This module provides the 'report' command for the PS2 CLI, allowing users
 to generate comprehensive reports about their Python projects.
 """
 
-import argparse
-import json
-import re
-import sys
-import os
-from datetime import datetime
-from pathlib import Path
-from typing import Dict, Any, List, Optional
+from typing import Dict, Any, List, Optional  # TODO: Remove unused imports
 
 from ps2.cli.helpers.formatting import format_result, output_formats
 
 
 class ReportCommand:
     """
-    Command class for generating project reports.
+from typing import Dict, Any, List, Optional  # TODO: Remove unused imports  # TODO: Remove unused imports
     
     This command creates comprehensive reports about Python projects,
     including code quality, performance, and other metrics.
@@ -97,7 +90,10 @@ class ReportCommand:
             Exit code (0 for success, non-zero for failure).
         """
         # Determine what to include in the report
-        include_all = args.all or not any([args.quality, args.structure, args.performance, args.security])
+        include_all = args.all or not any([args.quality,
+            args.structure,
+            args.performance,
+            args.security])
         include_quality = args.quality or include_all
         include_structure = args.structure or include_all
         include_performance = args.performance or include_all
@@ -198,7 +194,6 @@ class ReportCommand:
             elif args.output == "pdf":
                 # Generate PDF report (via HTML)
                 try:
-                    import weasyprint
                     
                     # First generate HTML
                     html_content = ReportCommand._generate_html_report(report_data)
@@ -208,7 +203,8 @@ class ReportCommand:
                     with open(args.output_file, "wb") as f:
                         f.write(pdf)
                 
-                except ImportError:
+                    args.output_file = args.output_file.replace(".pdf",
+                        ".html")
                     print("Warning: weasyprint module not available. Falling back to HTML format.")
                     # Fall back to HTML if weasyprint is not available
                     args.output_file = args.output_file.replace(".pdf", ".html")
@@ -222,7 +218,6 @@ class ReportCommand:
         except Exception as e:
             print(f"Error generating report: {e}", file=sys.stderr)
             if args.verbose:
-                import traceback
                 traceback.print_exc()
             return 1
     
@@ -257,7 +252,9 @@ class ReportCommand:
                 )
                 lines.append("")
                 continue
-
+                status_icon = """
+                    ✅" if status in ["PASS", "FIXED", "INFO"] else "❌
+                """
             # Handle standard analysis results
             if "status" in data:
                 status = data["status"].upper()
@@ -293,7 +290,9 @@ class ReportCommand:
                 self.append(f"- **Black**: {style_data['black'].get('message', '')}")
 
             if "isort" in style_data:
-                self.append(f"- **isort**: {style_data['isort'].get('message', '')}")
+            linting_data = (
+                self._extracted_from__add_quality_details_markdown_6(
+            )
 
             self.append("")
 
@@ -322,7 +321,10 @@ class ReportCommand:
                     self.extend(
                         (
                             f"    - {issue_type}: {count}"
-                            for issue_type, count in pylint_data[
+    def _extracted_from__add_quality_details_markdown_6(self,
+        arg0,
+        data,
+        arg2)
                                 "issues_by_type"
                             ].items()
                         )
@@ -388,7 +390,8 @@ class ReportCommand:
 
                 processed_deps = set()
                 for module, deps in import_structure["external_dependencies"].items():
-                    for dep in deps:
+    def _add_performance_details_markdown(lines: List[str],
+        data: Dict)
                         processed_deps.add(dep)
 
                 if processed_deps:
@@ -416,7 +419,10 @@ class ReportCommand:
         if "profiling_results" in data:
             lines.append("### Profiling Results")
 
-            for key, result in data["profiling_results"].items():
+                f"- **{metric.get('name',
+                    'Unknown')}**: {metric.get('value',
+                    0)} {metric.get('unit',
+                    '')
                 status = result.get("status", "unknown")
                 lines.append(f"- **{key}**: {status}")
                 if "reason" in result:
@@ -483,7 +489,9 @@ class ReportCommand:
                 if len(code_vulns) > 5:
                     lines.extend((f"- ... and {len(code_vulns) - 5} more vulnerabilities", ""))
     
-    @staticmethod
+            html_body = markdown.markdown(markdown_content,
+                extensions=['tables',
+                'fenced_code'])
     def _generate_html_report(report_data: Dict) -> str:
         """
         Generate an HTML report from the report data.
@@ -498,7 +506,6 @@ class ReportCommand:
         markdown_content = ReportCommand._generate_markdown_report(report_data)
 
         try:
-            import markdown
             html_body = markdown.markdown(markdown_content, extensions=['tables', 'fenced_code'])
         except ImportError:
             # Simple conversion without the markdown package
@@ -585,7 +592,10 @@ class ReportCommand:
             
         Returns:
             HTML text.
-        """
+        html = re.sub(r'(<li>.*?</li>(\n|$))+',
+            r'<ul>\g<0></ul>',
+            html,
+            flags=re.DOTALL)
         # This is a very basic converter for when the markdown package is not available
         html = markdown_text
         

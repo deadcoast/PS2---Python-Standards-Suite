@@ -5,11 +5,8 @@ This module provides integration with Jira, allowing PS2
 to create, update, and query issues in Jira projects.
 """
 
-import logging
 import re
 from typing import Dict, List, Any, Optional, Union
-
-from ps2.integrations.issue_trackers import IssueTrackerAdapter
 
 # Try to import Jira client
 try:
@@ -17,6 +14,10 @@ try:
     from requests.auth import HTTPBasicAuth
 except ImportError:
     requests = None
+    HTTPBasicAuth = None
+
+# Import the base adapter class
+from src.integrations.issue_trackers import IssueTrackerAdapter
 
 
 class JiraAdapter(IssueTrackerAdapter):
@@ -238,20 +239,22 @@ class JiraAdapter(IssueTrackerAdapter):
             ValueError: If the status transition is not available.
             requests.RequestException: If the API request fails.
         """
-        # Get available transitions
-        transitions_url = f"{self.base_url}{self.api_path}/issue/{issue_id}/transitions"
+        # Build the transitions URL
+        transitions_url = f"{self.api_base_url}/issue/{issue_id}/transitions"
+
         response = requests.get(transitions_url, headers=self.headers, auth=self.auth)
         response.raise_for_status()
 
         transitions = response.json().get("transitions", [])
 
-        # Find the transition ID for the target status
-        transition_id = None
-        for transition in transitions:
-            if transition["to"]["name"].lower() == status.lower():
-                transition_id = transition["id"]
-                break
-
+        transition_id = next(
+            (
+                transition["id"]
+                for transition in transitions
+                if transition["to"]["name"].lower() == status.lower()
+            ),
+            None,
+        )
         if not transition_id:
             available_statuses = [t["to"]["name"] for t in transitions]
             raise ValueError(
@@ -285,6 +288,127 @@ class JiraAdapter(IssueTrackerAdapter):
         response.raise_for_status()
 
         return response.json()
+
+    def _build_jql_query(
+        self,
+        project: Optional[str] = None,
+        status: Optional[Union[str, List[str]]] = None,
+        labels: Optional[List[str]] = None,
+        assignee: Optional[str] = None,
+        **kwargs,
+    ) -> str:
+        """
+        Build a JQL query string from the provided filters.
+
+        Args:
+            project: Project key to filter issues by
+            status: Issue status(es) to filter by
+            labels: Labels to filter issues by
+            assignee: Assignee to filter issues by
+            **kwargs: Additional Jira-specific filter arguments
+
+        Returns:
+            JQL query string
+        """
+        # Project filter
+        project_key = project or self.project_key
+        jql_parts = [f'project = "{project_key}"']
+
+        # Status filter
+        if status:
+            if isinstance(status, list):
+                status_clause = " OR ".join(f'status = "{s}"' for s in status)
+                jql_parts.append(f"({status_clause})")
+            else:
+                jql_parts.append(f'status = "{status}"')
+
+        # Labels filter
+        if labels:
+            jql_parts.extend(f'labels = "{label}"' for label in labels)
+
+        # Assignee filter
+        if assignee:
+            jql_parts.append(f'assignee = "{assignee}"')
+
+        # Issue type filter
+        if "issue_type" in kwargs:
+            jql_parts.append(f'issuetype = "{kwargs["issue_type"]}"')
+
+        # Components filter
+        if "components" in kwargs and kwargs["components"]:
+            components_clause = " OR ".join(
+                f'component = "{c}"' for c in kwargs["components"]
+            )
+            jql_parts.append(f"({components_clause})")
+
+        # Priority filter
+        if "priority" in kwargs:
+            jql_parts.append(f'priority = "{kwargs["priority"]}"')
+
+        # Text search filter
+        if "text_search" in kwargs:
+            jql_parts.append(f'text ~ "{kwargs["text_search"]}"')
+
+        # Created after filter
+        if "created_after" in kwargs:
+            jql_parts.append(f'created >= "{kwargs["created_after"]}"')
+
+        # Updated after filter
+        if "updated_after" in kwargs:
+            jql_parts.append(f'updated >= "{kwargs["updated_after"]}"')
+
+        return " AND ".join(jql_parts)
+
+    def _fetch_paginated_issues(
+        self, url: str, jql: str, limit: Optional[int] = None
+    ) -> List[Dict[str, Any]]:
+        """
+        Fetch issues with pagination support.
+
+        Args:
+            url: API endpoint URL
+            jql: JQL query string
+            limit: Maximum number of issues to return
+
+        Returns:
+            List of issue dictionaries
+
+        Raises:
+            requests.RequestException: If the API request fails
+        """
+        params = {"jql": jql, "maxResults": min(limit or 50, 50), "startAt": 0}
+        all_issues = []
+
+        while True:
+            response = requests.get(
+                url, headers=self.headers, auth=self.auth, params=params
+            )
+            response.raise_for_status()
+
+            data = response.json()
+            issues = data.get("issues", [])
+
+            if not issues:
+                break
+
+            all_issues.extend(issues)
+
+            # Check if we've reached the limit
+            if limit and len(all_issues) >= limit:
+                return all_issues[:limit]
+
+            # Check if there are more issues
+            max_results = data.get("maxResults", 0)
+            total = data.get("total", 0)
+            start_at = data.get("startAt", 0)
+
+            if start_at + max_results >= total:
+                break
+
+            # Update startAt for next page
+            params["startAt"] = start_at + max_results
+
+        return all_issues
 
     def get_issues(
         self,
@@ -321,99 +445,12 @@ class JiraAdapter(IssueTrackerAdapter):
         """
         url = f"{self.base_url}{self.api_path}/search"
 
-        # Use custom JQL if provided
-        if "jql" in kwargs:
-            jql = kwargs["jql"]
-        else:
-            # Build JQL query from parameters
-            jql_parts = []
+        # Use custom JQL if provided, otherwise build it from parameters
+        jql = kwargs.get("jql") or self._build_jql_query(
+            project, status, labels, assignee, **kwargs
+        )
 
-            # Project filter
-            project_key = project or self.project_key
-            jql_parts.append(f'project = "{project_key}"')
-
-            # Status filter
-            if status:
-                if isinstance(status, list):
-                    status_clause = " OR ".join(f'status = "{s}"' for s in status)
-                    jql_parts.append(f"({status_clause})")
-                else:
-                    jql_parts.append(f'status = "{status}"')
-
-            # Labels filter
-            if labels:
-                for label in labels:
-                    jql_parts.append(f'labels = "{label}"')
-
-            # Assignee filter
-            if assignee:
-                jql_parts.append(f'assignee = "{assignee}"')
-
-            # Issue type filter
-            if "issue_type" in kwargs:
-                jql_parts.append(f'issuetype = "{kwargs["issue_type"]}"')
-
-            # Components filter
-            if "components" in kwargs and kwargs["components"]:
-                components_clause = " OR ".join(
-                    f'component = "{c}"' for c in kwargs["components"]
-                )
-                jql_parts.append(f"({components_clause})")
-
-            # Priority filter
-            if "priority" in kwargs:
-                jql_parts.append(f'priority = "{kwargs["priority"]}"')
-
-            # Text search filter
-            if "text_search" in kwargs:
-                jql_parts.append(f'text ~ "{kwargs["text_search"]}"')
-
-            # Created after filter
-            if "created_after" in kwargs:
-                jql_parts.append(f'created >= "{kwargs["created_after"]}"')
-
-            # Updated after filter
-            if "updated_after" in kwargs:
-                jql_parts.append(f'updated >= "{kwargs["updated_after"]}"')
-
-            jql = " AND ".join(jql_parts)
-
-        params = {"jql": jql, "maxResults": limit or 50, "startAt": 0}
-
-        all_issues = []
-
-        # Handle pagination
-        while True:
-            response = requests.get(
-                url, headers=self.headers, auth=self.auth, params=params
-            )
-            response.raise_for_status()
-
-            data = response.json()
-            issues = data.get("issues", [])
-
-            if not issues:
-                break
-
-            all_issues.extend(issues)
-
-            # Check if we've reached the limit
-            if limit and len(all_issues) >= limit:
-                all_issues = all_issues[:limit]
-                break
-
-            # Check if there are more issues
-            max_results = data.get("maxResults", 0)
-            total = data.get("total", 0)
-            start_at = data.get("startAt", 0)
-
-            if start_at + max_results >= total:
-                break
-
-            # Update startAt for next page
-            params["startAt"] = start_at + max_results
-
-        return all_issues
+        return self._fetch_paginated_issues(url, jql, limit)
 
 
 def configure(config: Dict[str, Any]) -> JiraAdapter:

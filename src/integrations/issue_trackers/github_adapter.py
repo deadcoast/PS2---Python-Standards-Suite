@@ -5,17 +5,18 @@ This module provides integration with GitHub Issues, allowing PS2
 to create, update, and query issues in GitHub repositories.
 """
 
-import logging
 import re
-from typing import Dict, List, Any, Optional, Union
 
-from ps2.integrations.issue_trackers import IssueTrackerAdapter
+from typing import Dict, List, Any, Optional, Union
 
 # Try to import GitHub API client
 try:
     import requests
 except ImportError:
     requests = None
+
+# Import the base adapter class
+from src.integrations.issue_trackers import IssueTrackerAdapter
 
 
 class GitHubAdapter(IssueTrackerAdapter):
@@ -167,6 +168,119 @@ class GitHubAdapter(IssueTrackerAdapter):
 
         return response.json()
 
+    def _build_github_params(
+        self,
+        status: Optional[Union[str, List[str]]] = None,
+        labels: Optional[List[str]] = None,
+        assignee: Optional[str] = None,
+        **kwargs,
+    ) -> Dict[str, Any]:
+        """
+        Build GitHub API request parameters from the provided filters.
+
+        Args:
+            status: Issue status(es) to filter by
+            labels: Labels to filter issues by
+            assignee: Assignee to filter issues by
+            **kwargs: Additional GitHub-specific filter arguments
+
+        Returns:
+            Dictionary of request parameters
+        """
+        params = {}
+
+        # GitHub state filter (open, closed, all)
+        if status:
+            params["state"] = "all" if isinstance(status, list) else status.lower()
+        else:
+            params["state"] = "open"  # Default to open issues
+
+        # Labels filter
+        if labels:
+            params["labels"] = ",".join(labels)
+
+        # Assignee filter
+        if assignee:
+            params["assignee"] = assignee
+
+        # Add filter for creator if specified
+        if "creator" in kwargs:
+            params["creator"] = kwargs["creator"]
+
+        # Add filter for mentioned user if specified
+        if "mentioned" in kwargs:
+            params["mentioned"] = kwargs["mentioned"]
+
+        # Add sort and direction
+        params["sort"] = kwargs.get("sort", "created")
+        params["direction"] = kwargs.get("direction", "desc")
+
+        return params
+
+    def _fetch_paginated_issues(
+        self, url: str, params: Dict[str, Any], limit: Optional[int] = None
+    ) -> List[Dict[str, Any]]:
+        """
+        Fetch issues with pagination support.
+
+        Args:
+            url: API endpoint URL
+            params: Request parameters
+            limit: Maximum number of issues to return
+
+        Returns:
+            List of issue dictionaries
+
+        Raises:
+            requests.RequestException: If the API request fails
+        """
+        all_issues = []
+        page = 1
+        per_page = min(100, limit or 100)  # GitHub max per page is 100
+        request_params = params.copy()
+
+        while True:
+            request_params["page"] = page
+            request_params["per_page"] = per_page
+
+            response = requests.get(url, headers=self.headers, params=request_params)
+            response.raise_for_status()
+
+            issues = response.json()
+
+            if not issues:
+                break
+
+            all_issues.extend(issues)
+
+            # Check if we've reached the limit
+            if limit and len(all_issues) >= limit:
+                return all_issues[:limit]
+
+            # Check if there are more pages
+            if len(issues) < per_page:
+                break
+
+            page += 1
+
+        return all_issues
+
+    def _filter_by_status_list(
+        self, issues: List[Dict[str, Any]], status: List[str]
+    ) -> List[Dict[str, Any]]:
+        """
+        Filter issues by a list of status values.
+
+        Args:
+            issues: List of issue dictionaries
+            status: List of status values to filter by
+
+        Returns:
+            Filtered list of issue dictionaries
+        """
+        status_values = [s.lower() for s in status]
+        return [issue for issue in issues if issue.get("state") in status_values]
+
     def get_issues(
         self,
         project: Optional[str] = None,
@@ -195,74 +309,19 @@ class GitHubAdapter(IssueTrackerAdapter):
         """
         url = f"{self.api_base_url}/repos/{self.repo_owner}/{self.repo_name}/issues"
 
-        params = {}
+        # Build request parameters
+        params = self._build_github_params(status, labels, assignee, **kwargs)
 
-        # GitHub state filter (open, closed, all)
-        if status:
-            if isinstance(status, list):
-                # If multiple statuses are provided, use 'all' and filter later
-                params["state"] = "all"
-            else:
-                params["state"] = status.lower()
-        else:
-            params["state"] = "open"  # Default to open issues
-
-        # Labels filter
-        if labels:
-            params["labels"] = ",".join(labels)
-
-        # Assignee filter
-        if assignee:
-            params["assignee"] = assignee
-
-        # Add filter for creator if specified
-        if "creator" in kwargs:
-            params["creator"] = kwargs["creator"]
-
-        # Add filter for mentioned user if specified
-        if "mentioned" in kwargs:
-            params["mentioned"] = kwargs["mentioned"]
-
-        # Add sort and direction
-        params["sort"] = kwargs.get("sort", "created")
-        params["direction"] = kwargs.get("direction", "desc")
-
-        # Get all issues matching the filters
-        all_issues = []
-        page = 1
-        per_page = min(100, limit or 100)  # GitHub max per page is 100
-
-        while True:
-            params["page"] = page
-            params["per_page"] = per_page
-
-            response = requests.get(url, headers=self.headers, params=params)
-            response.raise_for_status()
-
-            issues = response.json()
-
-            if not issues:
-                break
-
-            all_issues.extend(issues)
-
-            # Check if we've reached the limit
-            if limit and len(all_issues) >= limit:
-                all_issues = all_issues[:limit]
-                break
-
-            # Check if there are more pages
-            if len(issues) < per_page:
-                break
-
-            page += 1
+        # Fetch issues with pagination
+        all_issues = self._fetch_paginated_issues(url, params, limit)
 
         # Apply additional filtering for status if multiple statuses were provided
         if status and isinstance(status, list):
-            status_values = [s.lower() for s in status]
-            all_issues = [
-                issue for issue in all_issues if issue.get("state") in status_values
-            ]
+            all_issues = self._filter_by_status_list(all_issues, status)
+
+            # Re-apply limit if needed after filtering
+            if limit and len(all_issues) > limit:
+                all_issues = all_issues[:limit]
 
         return all_issues
 

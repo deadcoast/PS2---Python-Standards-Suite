@@ -5,15 +5,11 @@ This module provides the 'check' command for the PS2 CLI, allowing users
 to check code quality and standards from the command line.
 """
 
-import argparse
-import json
-import sys
-from pathlib import Path
-from typing import Dict, Any, Optional
+from typing import Dict, Any, Optional  # TODO: Remove unused imports
 
 from ps2.cli.helpers.formatting import format_result, output_formats
 
-
+from typing import Dict, Any, Optional  # TODO: Remove unused imports  # TODO: Remove unused imports
 class CheckCommand:
     """
     Command class for checking code quality.
@@ -46,11 +42,17 @@ class CheckCommand:
         parser.add_argument(
             "--style", "-s", action="store_true", help="Check code style"
         )
-        parser.add_argument("--lint", "-l", action="store_true", help="Check linting")
+        parser.add_argument("--lint",
+            "-l",
+            action="store_true",
+            help="Check linting")
         parser.add_argument(
             "--type", "-t", action="store_true", help="Check type safety"
         )
-        parser.add_argument(
+        parser.add_argument("--all",
+            "-a",
+            action="store_true",
+            help="Run all checks")
             "--doc", "-d", action="store_true", help="Check documentation"
         )
         parser.add_argument("--all", "-a", action="store_true", help="Run all checks")
@@ -88,7 +90,6 @@ class CheckCommand:
         except Exception as e:
             print(f"Error checking code quality: {e}", file=sys.stderr)
             if args.verbose:
-                import traceback
 
                 traceback.print_exc()
             return 1

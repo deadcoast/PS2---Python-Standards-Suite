@@ -6,24 +6,50 @@ This module serves as the central orchestrator for the PS2 system,
 providing a unified interface to access all PS2 functionality.
 """
 
-import sys
 import logging
+import sys
+import os
 from pathlib import Path
 from typing import Dict, List, Optional
 
-from ps2.config import default_settings
-from ps2.core.analyzer import CodeAnalyzer
-from ps2.core.code_quality import CodeQualityEnforcer
-from ps2.core.conflict_resolver import ConflictResolver
-from ps2.core.dependency_manager import DependencyManager
-from ps2.core.duplication_detector import DuplicationDetector
-from ps2.core.import_enforcer import ImportEnforcer
-from ps2.core.performance_monitor import PerformanceMonitor
-from ps2.core.project_generator import ProjectGenerator
-from ps2.core.security_scanner import SecurityScanner
-from ps2.core.task_manager import TaskManager
-from ps2.utils.logging_utils import setup_logging
-from ps2.utils.file_operations import get_project_root
+# Add the project root to the Python path to enable imports
+# when running the script directly
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
+
+try:
+    # Try importing with the 'src.' prefix (when installed as a package)
+    # Import core components
+    from src.core.analyzer import CodeAnalyzer
+    from src.core.conflict_resolver import ConflictResolver
+    from src.core.dependency_manager import DependencyManager
+    from src.core.duplication_detector import DuplicationDetector
+    from src.core.import_enforcer import ImportEnforcer
+    from src.core.performance_monitor import PerformanceMonitor
+    from src.core.project_generator import ProjectGenerator
+    from src.core.security_scanner import SecurityScanner
+    from src.core.task_manager import TaskManager
+
+    # Import utilities
+    from src.utils.logging_utils import setup_logging
+    from src.utils.path_utils import get_project_root
+    from src.config import default_settings
+except ImportError:
+    # Fall back to direct imports (when running the script directly)
+    # Import core components
+    from core.analyzer import CodeAnalyzer
+    from core.conflict_resolver import ConflictResolver
+    from core.dependency_manager import DependencyManager
+    from core.duplication_detector import DuplicationDetector
+    from core.import_enforcer import ImportEnforcer
+    from core.performance_monitor import PerformanceMonitor
+    from core.project_generator import ProjectGenerator
+    from core.security_scanner import SecurityScanner
+    from core.task_manager import TaskManager
+
+    # Import utilities
+    from utils.logging_utils import setup_logging
+    from utils.path_utils import get_project_root
+    from config import default_settings
 
 
 class PS2:
@@ -46,7 +72,7 @@ class PS2:
         Initialize the PS2 controller.
 
         Args:
-            project_path: Path to the target Python project. If None, attempts to detect.
+            project_path: Path to the target Python project. If None, attempts to detect.  # TODO: Line too long, needs manual fixing
             config_path: Path to custom configuration. If None, uses default.
             log_level: Logging level for PS2 operations.
             enable_all: Whether to enable all PS2 features by default.
@@ -65,7 +91,6 @@ class PS2:
         # Initialize core components
         self.project_generator = ProjectGenerator(self.project_path, self.config)
         self.code_analyzer = CodeAnalyzer(self.project_path, self.config)
-        self.code_quality = CodeQualityEnforcer(self.project_path, self.config)
         self.conflict_resolver = ConflictResolver(self.project_path, self.config)
         self.dependency_manager = DependencyManager(self.project_path, self.config)
         self.duplication_detector = DuplicationDetector(self.project_path, self.config)
@@ -110,13 +135,46 @@ class PS2:
             Configuration dictionary.
         """
         if config_path:
-            # TODO: Implement custom configuration loading
             self.logger.info(f"Loading configuration from: {config_path}")
-            # For now, just use default settings
+            try:
+                config_file = Path(config_path)
+                if config_file.exists():
+                    # Load custom configuration from JSON or YAML
+                    if config_file.suffix.lower() == ".json":
+                        import json
+
+                        with open(config_file, "r") as f:
+                            custom_config = json.load(f)
+                            return self._load_base_config(custom_config)
+                    elif config_file.suffix.lower() in [".yaml", ".yml"]:
+                        try:
+                            import yaml
+
+                            with open(config_file, "r") as f:
+                                custom_config = yaml.safe_load(f)
+                                return self._load_base_config(custom_config)
+                        except ImportError:
+                            self.logger.warning(
+                                "YAML support not available, using default configuration"
+                            )
+                            return default_settings.get_default_config()
+                    else:
+                        self.logger.warning(
+                            f"Unsupported config format: {config_file.suffix}"
+                        )
+            except Exception as e:
+                self.logger.error(f"Error loading configuration: {e}")
+
+            # Fallback to default settings
             return default_settings.get_default_config()
 
         self.logger.info("Using default configuration")
         return default_settings.get_default_config()
+
+    def _load_base_config(self, custom_config):
+        base_config = default_settings.get_default_config()
+        base_config.update(custom_config)
+        return base_config
 
     def enable_all_features(self) -> None:
         """Enable all PS2 features and enforcements."""
@@ -151,7 +209,8 @@ class PS2:
             project_type: Type of project template to use.
 
         Returns:
-            Path to the generated project.
+        return self.project_generator.generate_project(project_name,
+            project_type)
         """
         self.logger.info(
             f"Generating new project: {project_name} (type: {project_type})"
@@ -301,7 +360,28 @@ class PS2:
             True if successful, False otherwise.
         """
         self.logger.info("Installing git hooks")
-        # TODO: Implement git hook installation
+        try:
+            return self._git_hook_directory0()
+        except Exception as e:
+            self.logger.error(f"Failed to install git hooks: {e}")
+            return False
+
+    def _git_hook_directory0(self):
+        hooks_dir = Path(self.project_path) / ".git" / "hooks"
+        if not hooks_dir.exists():
+            self.logger.warning("No .git/hooks directory found")
+            return False
+
+        # Install pre-commit hook
+        pre_commit = hooks_dir / "pre-commit"
+        with open(pre_commit, "w") as f:
+            f.write("#!/bin/sh\n")
+            f.write("# PS2 pre-commit hook\n")
+            f.write("python -m src.cli.main check --path .\n")
+
+        # Make executable
+        pre_commit.chmod(0o755)
+        self.logger.info("Git hooks installed successfully")
         return True
 
     def setup_ci_pipeline(self, ci_type: str = "github") -> bool:
@@ -315,8 +395,37 @@ class PS2:
             True if successful, False otherwise.
         """
         self.logger.info(f"Setting up CI pipeline (type: {ci_type})")
-        # TODO: Implement CI pipeline setup
-        return True
+        try:
+            # Create CI config directory if it doesn't exist
+            ci_dir = Path(self.project_path)
+            if ci_type == "github":
+                ci_dir = ci_dir / ".github" / "workflows"
+                ci_dir.mkdir(parents=True, exist_ok=True)
+
+                # Copy template to project
+                template_path = (
+                    Path(get_project_root())
+                    / "src"
+                    / "config"
+                    / "ci_templates"
+                    / "github_actions.yml"
+                )
+                target_path = ci_dir / "ps2_checks.yml"
+
+                if template_path.exists():
+                    with open(template_path, "r") as src, open(target_path, "w") as dst:
+                        dst.write(src.read())
+                    self.logger.info(f"CI pipeline setup complete: {target_path}")
+                    return True
+                else:
+                    self.logger.error(f"Template not found: {template_path}")
+                    return False
+            else:
+                self.logger.error(f"Unsupported CI type: {ci_type}")
+                return False
+        except Exception as e:
+            self.logger.error(f"Failed to set up CI pipeline: {e}")
+            return False
 
 
 def initialize_ps2(
@@ -341,6 +450,8 @@ def initialize_ps2(
 # Allow direct execution
 if __name__ == "__main__":
     # If executed directly, pass control to CLI
-    from ps2.cli.main import main
-
+    try:
+        from src.cli.main import main
+    except ImportError:
+        from cli.main import main
     sys.exit(main())

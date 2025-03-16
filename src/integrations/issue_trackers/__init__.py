@@ -10,11 +10,10 @@ import importlib
 import logging
 from typing import Dict, List, Any, Optional, Union
 
-# Registry of configured tracker instances
 _configured_trackers = {}
 
-# Logger
-logger = logging.getLogger("ps2.integrations.issue_trackers")
+# Logger for issue trackers package
+logger = logging.getLogger("src.integrations.issue_trackers")
 
 
 def register_issue_tracker(
@@ -39,7 +38,7 @@ def register_issue_tracker(
         raise ValueError(f"Unsupported issue tracker type: {tracker_type}")
 
     try:
-        return _extracted_from_register_issue_tracker_24(tracker_type, config)
+        return _import_and_configure_tracker(tracker_type, config)
     except ImportError:
         logger.error(f"Failed to import {tracker_type} issue tracker adapter")
         raise
@@ -48,8 +47,20 @@ def register_issue_tracker(
         raise
 
 
-# TODO Rename this here and in `register_issue_tracker`
-def _extracted_from_register_issue_tracker_24(tracker_type, config):
+def _import_and_configure_tracker(tracker_type: str, config: Dict[str, Any]) -> object:
+    """
+    Import the issue tracker module and configure the adapter.
+
+    Args:
+        tracker_type: Type of issue tracker to import and configure.
+        config: Configuration dictionary for the issue tracker.
+
+    Returns:
+        Configured issue tracker instance.
+
+    Raises:
+        ImportError: If the tracker module cannot be imported.
+    """
     # Import the appropriate adapter module
     module_name = f"ps2.integrations.issue_trackers.{tracker_type}"
     adapter_module = importlib.import_module(module_name)

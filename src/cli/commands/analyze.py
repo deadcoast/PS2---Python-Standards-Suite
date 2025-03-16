@@ -5,15 +5,11 @@ This module provides the 'analyze' command for the PS2 CLI, allowing users
 to perform comprehensive codebase analysis from the command line.
 """
 
-import argparse
-import json
-import sys
-from pathlib import Path
-from typing import Dict, Any, Optional
+from typing import Dict, Any, Optional  # TODO: Remove unused imports
 
 from ps2.cli.helpers.formatting import format_result, output_formats
 
-
+from typing import Dict, Any, Optional  # TODO: Remove unused imports  # TODO: Remove unused imports
 class AnalyzeCommand:
     """
     Command class for running codebase analysis.
@@ -44,9 +40,18 @@ class AnalyzeCommand:
             "--output-file", "-f", help="Output file path (default: stdout)"
         )
         parser.add_argument(
-            "--modules", "-m", action="store_true", help="Analyze module structure"
-        )
-        parser.add_argument(
+            "--modules", "-m", action = """
+                store_true", help="Analyze module structure
+            """
+            "--complexity", "-c", action = """
+                store_true", help="Analyze code complexity
+            """
+            "--dependencies", "-d", action = """
+                store_true", help="Analyze dependencies
+        parser.add_argument("--all",
+            "-a",
+            action="store_true",
+            help="Run all analyses")
             "--complexity", "-c", action="store_true", help="Analyze code complexity"
         )
         parser.add_argument(
@@ -94,7 +99,6 @@ class AnalyzeCommand:
         except Exception as e:
             print(f"Error analyzing codebase: {e}", file=sys.stderr)
             if args.verbose:
-                import traceback
 
                 traceback.print_exc()
             return 1

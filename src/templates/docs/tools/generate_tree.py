@@ -17,24 +17,21 @@ Options:
 Author: Space Muck Team
 """
 
+import argparse
+import glob
 import os
 import sys
-import glob
-import argparse
+import subprocess
 from pathlib import Path
 
 try:
-    from rich.tree import Tree
     from rich.console import Console
-    from rich import print as rprint
+    from rich.tree import Tree
 except ImportError:
     print("This script requires the Rich library. Installing it now...")
-    import subprocess
-
     subprocess.check_call([sys.executable, "-m", "pip", "install", "rich"])
-    from rich.tree import Tree
     from rich.console import Console
-    from rich import print as rprint
+    from rich.tree import Tree
 
 # Default patterns to ignore
 DEFAULT_IGNORE = [
@@ -129,7 +126,9 @@ def parse_args():
     parser.add_argument("--path", type=str, help="Directory to generate tree for")
     parser.add_argument("--output", type=str, help="Output file")
     parser.add_argument(
-        "--ignore", action="append", help="Patterns to ignore", default=[]
+        "--ignore",
+        action="append",
+        help="Patterns to ignore (can be specified multiple times)",
     )
     parser.add_argument("--max-depth", type=int, help="Maximum depth to display")
     parser.add_argument(
@@ -142,25 +141,25 @@ def should_ignore(path, ignore_patterns):
     """Check if path should be ignored based on patterns."""
     if not ignore_patterns:
         return False
-        
+
     # Get the path as string and the filename/dirname
     path_str = str(path)
     name = path.name
-    
+
     for pattern in ignore_patterns:
         # Exact name match (needed for directories like .git)
         if pattern == name:
             return True
-            
+
         # Handle glob patterns with fnmatch
         if "*" in pattern or "?" in pattern:
             if glob.fnmatch.fnmatch(name, pattern):
                 return True
-            
+
         # Direct substring match in full path
         elif pattern in path_str:
             return True
-    
+
     return False
 
 
@@ -171,7 +170,8 @@ def build_directory_tree(
     if ignore_patterns is None:
         ignore_patterns = []
 
-    if max_depth is not None and current_depth > max_depth:
+    # If we've reached max depth, stop recursion
+    if max_depth is not None and current_depth >= max_depth:
         return
 
     try:
@@ -202,7 +202,7 @@ def main():
 
     # Set up ignore patterns - ALWAYS use default ignore patterns
     ignore_patterns = DEFAULT_IGNORE.copy()
-    
+
     # Add any additional custom ignore patterns
     if args.ignore:
         ignore_patterns.extend(args.ignore)
@@ -235,15 +235,18 @@ def main():
 
     # Save to file
     with open(output_file, "w") as f:
-        f.write("# Directory Tree\n\n")
-        f.write(f"Generated for: {directory}\n\n")
-        if ignore_patterns:
-            f.write(f"Excluded patterns: {', '.join(ignore_patterns)}\n\n")
-        f.write("```\n")
-        f.write(console.export_text())
-        f.write("\n```\n")
-
+        rich_directory_tree(f, directory, ignore_patterns, console)
     print(f"Tree saved to {output_file}")
+
+
+def rich_directory_tree(f, directory, ignore_patterns, console):
+    f.write("# Directory Tree\n\n")
+    f.write(f"Generated for: {directory}\n\n")
+    if ignore_patterns:
+        f.write(f"Excluded patterns: {', '.join(ignore_patterns)}\n\n")
+    f.write("```\n")
+    f.write(console.export_text())
+    f.write("\n```\n")
 
 
 if __name__ == "__main__":

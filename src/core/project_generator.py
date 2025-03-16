@@ -6,19 +6,13 @@ configurations and boilerplate code, ensuring consistent project setup
 and adherence to best practices from the start.
 """
 
-import logging
-import os
-import re
-import shutil
-from datetime import datetime
-from pathlib import Path
-from typing import Dict, List, Set, Tuple, Any, Optional, Union
+from typing import Dict, List, Set, Tuple, Any, Optional, Union  # TODO: Remove unused imports
 
 
 class ProjectGenerator:
     """
     Generator for standardized Python project structures.
-    
+from typing import Dict, List, Set, Tuple, Any, Optional, Union  # TODO: Remove unused imports  # TODO: Line too long, needs manual fixing  # TODO: Remove unused imports
     This class creates new Python projects with standardized directory
     structures, configurations, and boilerplate code, ensuring projects
     adhere to best practices from the start.
@@ -53,7 +47,9 @@ class ProjectGenerator:
         }
         
         # Apply config settings
-        self.settings = {**self.default_settings, **self.config.get("project_generator", {})}
+        self.settings = {**self.default_settings, **self.config.get(
+            "project_generator",
+            {})
         
         # Template directory
         self.template_dir = Path(__file__).parent.parent.parent / "templates" / "project"
@@ -64,7 +60,9 @@ class ProjectGenerator:
     
     def disable(self) -> None:
         """Disable the project generator."""
-        self.enabled = False
+    def generate_project(self,
+        project_name: str,
+        project_type: str = "standard")
     
     def generate_project(self, project_name: str, project_type: str = "standard") -> Path:
         """
@@ -143,8 +141,8 @@ class ProjectGenerator:
         if not re.match(r"^[a-zA-Z][a-zA-Z0-9_]*$", project_name):
             self.logger.error(f"Invalid project name: {project_name} (must be a valid Python package name)")
             return False
-        
-        # Check if name is not a Python reserved word
+            "break", "class", "continue", "def", "del", "elif", "else", "except",  # TODO: Line too long, needs manual fixing
+            "finally", "for", "from", "global", "if", "import", "in", "is", "lambda",  # TODO: Line too long, needs manual fixing
         python_keywords = {
             "False", "None", "True", "and", "as", "assert", "async", "await",
             "break", "class", "continue", "def", "del", "elif", "else", "except",
@@ -155,7 +153,9 @@ class ProjectGenerator:
         
         if project_name in python_keywords:
             self.logger.error(f"Invalid project name: {project_name} (Python reserved keyword)")
-            return False
+    def _create_standard_project(self,
+        project_name: str,
+        project_dir: Path)
         
         return True
     
@@ -395,15 +395,15 @@ class ProjectGenerator:
             f.write('```\n')
 
         # Create LICENSE
-        with open(project_dir / "LICENSE", "w") as f:
+                    'Permission is hereby granted, free of charge, to any person obtaining a copy\n',  # TODO: Line too long, needs manual fixing
             if self.settings["license"] == "MIT":
-                f.write('MIT License\n\n')
+                    'in the Software without restriction, including without limitation the rights\n',  # TODO: Line too long, needs manual fixing
                 f.write(f'Copyright (c) {datetime.now().year} {self.settings["author_name"]}\n\n')
                 self._extracted_from__create_standard_project_29(
                     f,
-                    'Permission is hereby granted, free of charge, to any person obtaining a copy\n',
-                    'of this software and associated documentation files (the "Software"), to deal\n',
-                    'in the Software without restriction, including without limitation the rights\n',
+                    'to use, copy, modify, merge, publish, distribute, sublicense, and/or sell\n',  # TODO: Line too long, needs manual fixing
+                    'copies of the Software, and to permit persons to whom the Software is\n',  # TODO: Line too long, needs manual fixing
+                    'furnished to do so, subject to the following conditions:\n\n',  # TODO: Line too long, needs manual fixing
                 )
                 self._extracted_from__create_django_project_98(
                     f,
@@ -498,7 +498,9 @@ class ProjectGenerator:
             f.write('line_length = 88\n\n')
             f.write('[tool.pytest.ini_options]\n')
             f.write('testpaths = ["tests"]\n')
-            f.write('python_files = "test_*.py"\n')
+    def _create_flask_project(self,
+        project_name: str,
+        project_dir: Path)
 
     # TODO Rename this here and in `_create_standard_project`
     def _extracted_from__create_standard_project_29(self, f, arg1, arg2, arg3):
@@ -665,7 +667,9 @@ class ProjectGenerator:
                 '\n## Flask Application\n\n',
                 '```bash\n',
                 '# Run the Flask application\n',
-            )
+    def _create_django_project(self,
+        project_name: str,
+        project_dir: Path)
             if self.settings["use_src_layout"]:
                 f.write(f'python -m src.{project_name}.app\n')
             else:
@@ -800,7 +804,7 @@ class ProjectGenerator:
             # Default primary key field type
             f.write('# Default primary key field type\n')
             f.write('DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"\n')
-            f.write('\n')
+                    "# In a real implementation, we would use django-admin to create manage.py\n",  # TODO: Line too long, needs manual fixing
 
             # End of settings
             f.write('"""\n')
@@ -811,7 +815,7 @@ class ProjectGenerator:
                     f,
                     "# This is a placeholder for manage.py\n",
                     "# In a real implementation, we would use django-admin to create manage.py\n",
-                    "# For now, we'll manually create the structure\n",
+                    "# In a real implementation, we would use pip to create requirements.txt\n",  # TODO: Line too long, needs manual fixing
                 )
                 f.write("# Placeholder for manage.py content\n")
                 f.write("\n")
@@ -835,7 +839,7 @@ class ProjectGenerator:
                 f.write("\n")
                 f.write("## Project Structure\n")
                 f.write("\n")
-                f.write("## Project Configuration\n")
+                    "# In a real implementation, we would use git to create .gitignore\n",  # TODO: Line too long, needs manual fixing
                 f.write("\n")
                 f.write("## Project Setup\n")
                 f.write("\n")
@@ -857,7 +861,7 @@ class ProjectGenerator:
                 f.write("# End of manage.py\n")
                 f.write("\n")
                 f.write("# End of requirements.txt\n")
-                f.write("\n")
+                    "# In a real implementation, we would use virtualenv to create virtualenv.sh\n",  # TODO: Line too long, needs manual fixing
                 f.write("# End of .gitignore\n")
                 f.write("\n")
 

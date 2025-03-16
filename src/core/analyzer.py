@@ -7,14 +7,14 @@ insights that power other PS2 features.
 """
 
 import ast
+import logging
 import os
 import re
-import logging
+
+import networkx as nx
 from collections import defaultdict, Counter
 from pathlib import Path
 from typing import Dict, List, Tuple, Union
-
-import networkx as nx
 
 
 class CodeAnalyzer:
@@ -105,6 +105,7 @@ class CodeAnalyzer:
                 import_structure,
                 complexity_metrics,
                 name_registry,
+                module_structure,
                 test_coverage,
             ),
         }
@@ -130,7 +131,6 @@ class CodeAnalyzer:
             for file in files:
                 if file.endswith(".py"):
                     file_path = Path(root) / file
-                    # Check if file matches any exclude pattern
                     if not any(
                         re.match(pattern, str(file_path.relative_to(self.project_path)))
                         for pattern in exclude_patterns
@@ -190,14 +190,14 @@ class CodeAnalyzer:
         self._find_circular_dependencies(result, graph)
 
         # Convert sets to lists for JSON serialization
-        self._prepare_result_for_serialization(result)
-
         return result
-        
-    def _process_file_imports(self, tree: ast.AST, module_name: str, result: Dict, graph: nx.DiGraph) -> None:
+
+    def _process_file_imports(
+        self, tree: ast.AST, module_name: str, result: Dict, graph: nx.DiGraph
+    ) -> None:
         """
         Process imports in a single file.
-        
+
         Args:
             tree: AST of the file
             module_name: Name of the module being processed
@@ -209,11 +209,13 @@ class CodeAnalyzer:
                 self._process_import_node(node, module_name, result, graph)
             elif isinstance(node, ast.ImportFrom) and node.module:
                 self._process_importfrom_node(node, module_name, result, graph)
-                
-    def _process_import_node(self, node: ast.Import, module_name: str, result: Dict, graph: nx.DiGraph) -> None:
+
+    def _process_import_node(
+        self, node: ast.Import, module_name: str, result: Dict, graph: nx.DiGraph
+    ) -> None:
         """
         Process an Import node.
-        
+
         Args:
             node: Import node
             module_name: Name of the module being processed
@@ -224,11 +226,13 @@ class CodeAnalyzer:
             imported_name = name.name
             result["import_counts"][imported_name] += 1
             self._add_dependency(module_name, imported_name, result, graph)
-                
-    def _process_importfrom_node(self, node: ast.ImportFrom, module_name: str, result: Dict, graph: nx.DiGraph) -> None:
+
+    def _process_importfrom_node(
+        self, node: ast.ImportFrom, module_name: str, result: Dict, graph: nx.DiGraph
+    ) -> None:
         """
         Process an ImportFrom node.
-        
+
         Args:
             node: ImportFrom node
             module_name: Name of the module being processed
@@ -238,11 +242,13 @@ class CodeAnalyzer:
         module_source = node.module
         result["import_counts"][module_source] += 1
         self._add_dependency(module_name, module_source, result, graph)
-            
-    def _add_dependency(self, module_name: str, imported_name: str, result: Dict, graph: nx.DiGraph) -> None:
+
+    def _add_dependency(
+        self, module_name: str, imported_name: str, result: Dict, graph: nx.DiGraph
+    ) -> None:
         """
         Add a dependency between modules.
-        
+
         Args:
             module_name: Name of the importing module
             imported_name: Name of the imported module
@@ -254,11 +260,11 @@ class CodeAnalyzer:
             graph.add_edge(module_name, imported_name)
         else:
             result["external_dependencies"][module_name].add(imported_name)
-            
+
     def _find_circular_dependencies(self, result: Dict, graph: nx.DiGraph) -> None:
         """
         Find circular dependencies in the module graph.
-        
+
         Args:
             result: Dictionary to store results
             graph: Dependency graph
@@ -267,11 +273,11 @@ class CodeAnalyzer:
             result["circular_dependencies"] = list(nx.simple_cycles(graph))
         except nx.NetworkXNoCycle:
             result["circular_dependencies"] = []
-            
+
     def _prepare_result_for_serialization(self, result: Dict) -> None:
         """
         Convert sets to lists for JSON serialization.
-        
+
         Args:
             result: Dictionary to prepare
         """
@@ -306,20 +312,22 @@ class CodeAnalyzer:
         for file_path, tree in self._ast_cache.items():
             relative_path = file_path.relative_to(self.project_path)
             str_path = str(relative_path)
-            
+
             # Process classes and functions
             self._process_classes_and_functions(tree, result, str_path)
-            
+
             # Process line counts and comments
             self._process_line_counts(file_path, result, str_path)
 
         self._complexity_metrics = result
         return result
-        
-    def _process_classes_and_functions(self, tree: ast.AST, result: Dict, path_str: str) -> None:
+
+    def _process_classes_and_functions(
+        self, tree: ast.AST, result: Dict, path_str: str
+    ) -> None:
         """
         Count classes and functions and calculate complexity metrics.
-        
+
         Args:
             tree: AST of the file
             result: Dictionary to store results
@@ -327,24 +335,28 @@ class CodeAnalyzer:
         """
         # Count classes and functions
         classes = [node for node in ast.walk(tree) if isinstance(node, ast.ClassDef)]
-        functions = [node for node in ast.walk(tree) if isinstance(node, ast.FunctionDef)]
+        functions = [
+            node for node in ast.walk(tree) if isinstance(node, ast.FunctionDef)
+        ]
 
         result["class_counts"][path_str] = len(classes)
         result["function_counts"][path_str] = len(functions)
 
         # Calculate complexity metrics for functions
         file_complexity, function_lengths = self._calculate_function_metrics(functions)
-        
-        result["cyclomatic_complexity"][path_str] = file_complexity
-        result["function_lengths"][path_str] = function_lengths
-    
-    def _calculate_function_metrics(self, functions: List[ast.FunctionDef]) -> Tuple[Dict, Dict]:
+
+        result["cyclomatic_complexity"].update(file_complexity)
+        result["function_lengths"].update(function_lengths)
+
+    def _calculate_function_metrics(
+        self, functions: List[ast.FunctionDef]
+    ) -> Tuple[Dict[str, int], Dict[str, int]]:
         """
         Calculate cyclomatic complexity and length for each function.
-        
+
         Args:
             functions: List of function nodes
-            
+
         Returns:
             Tuple of (complexity_dict, length_dict)
         """
@@ -354,34 +366,31 @@ class CodeAnalyzer:
         for func in functions:
             func_name = self._get_qualified_function_name(func)
             complexity = self._calculate_cyclomatic_complexity(func)
-            
+
             file_complexity[func_name] = complexity
             function_lengths[func_name] = len(func.body)
-            
+
         return file_complexity, function_lengths
-    
+
     def _get_qualified_function_name(self, func: ast.FunctionDef) -> str:
         """
         Get the qualified name of a function (including class name if applicable).
-        
+
         Args:
             func: Function node
-            
+
         Returns:
             Qualified function name
         """
-        func_name = func.name
-        if hasattr(func, "parent") and isinstance(func.parent, ast.ClassDef):
-            func_name = f"{func.parent.name}.{func_name}"
-        return func_name
-    
+        return func.name
+
     def _calculate_cyclomatic_complexity(self, func: ast.FunctionDef) -> int:
         """
         Calculate cyclomatic complexity for a function.
-        
+
         Args:
             func: Function node
-            
+
         Returns:
             Cyclomatic complexity score
         """
@@ -396,13 +405,15 @@ class CodeAnalyzer:
             elif isinstance(node, ast.BoolOp):
                 # Add complexity for each boolean operation
                 complexity += len(node.values) - 1
-                
+
         return complexity
-    
-    def _process_line_counts(self, file_path: Path, result: Dict, path_str: str) -> None:
+
+    def _process_line_counts(
+        self, file_path: Path, result: Dict, path_str: str
+    ) -> None:
         """
         Count total lines and comment lines in a file.
-        
+
         Args:
             file_path: Path to the file
             result: Dictionary to store results
@@ -413,7 +424,9 @@ class CodeAnalyzer:
                 source_lines = f.readlines()
 
             total_lines = len(source_lines)
-            comment_lines = sum(bool(line.strip().startswith("#")) for line in source_lines)
+            comment_lines = sum(
+                bool(line.strip().startswith("#")) for line in source_lines
+            )
 
             result["line_counts"][path_str] = total_lines
             result["comment_ratios"][path_str] = (
@@ -495,26 +508,35 @@ class CodeAnalyzer:
         """
         self.logger.info("Analyzing module structure")
 
-        # Build package hierarchy
         packages = defaultdict(list)
-        for file_path in self._ast_cache.keys():
-            relative_path = file_path.relative_to(self.project_path)
-            package_path = (
-                str(relative_path.parent) if relative_path.parent != Path(".") else ""
-            )
-            module_name = relative_path.stem
+        for file_path, tree in self._ast_cache.items():
+            for node in ast.walk(tree):
+                if (
+                    isinstance(node, ast.If)
+                    and (hasattr(node, "test") and isinstance(node.test, ast.Compare))
+                    and (
+                        hasattr(node.test, "left")
+                        and isinstance(node.test.left, ast.Name)
+                    )
+                    and node.test.left.id == "__name__"
+                    and (
+                        isinstance(node.test.ops[0], ast.Eq)
+                        and isinstance(node.test.comparators[0], ast.Str)
+                    )
+                ):
+                    relative_path = file_path.relative_to(self.project_path)
+                    package_path = (
+                        str(relative_path.parent)
+                        if relative_path.parent != Path(".")
+                        else ""
+                    )
+                    module_name = relative_path.stem
+                    if package_path:
+                        packages[package_path].append(module_name)
+                    else:
+                        packages["root"].append(module_name)
 
-            if package_path:
-                packages[package_path].append(module_name)
-            else:
-                packages["root"].append(module_name)
-
-        result = {
-            "module_sizes": {},
-            "entry_points": [],
-            "api_surface": {},
-            "package_hierarchy": {k: sorted(v) for k, v in packages.items()},
-        }
+        result = {"module_sizes": {}, "entry_points": [], "api_surface": {}}
         # Calculate module sizes
         for file_path in self._ast_cache.keys():
             relative_path = file_path.relative_to(self.project_path)
@@ -527,20 +549,26 @@ class CodeAnalyzer:
 
             # Check if file has __main__ block
             for node in ast.walk(tree):
-                if isinstance(node, ast.If) and (hasattr(node, "test") and isinstance(node.test, ast.Compare)) and (hasattr(node.test, "left") and isinstance(
-                                                                        node.test.left, ast.Name
-                                                                    )) and node.test.left.id == "__name__" and (
-                                        len(node.test.ops) == 1
-                                        and isinstance(node.test.ops[0], ast.Eq)
-                                        and len(node.test.comparators) == 1
-                                        and isinstance(node.test.comparators[0], ast.Str)
-                                        and node.test.comparators[0].s == "__main__"
-                                    ):
+                if (
+                    isinstance(node, ast.If)
+                    and (hasattr(node, "test") and isinstance(node.test, ast.Compare))
+                    and (
+                        hasattr(node.test, "left")
+                        and isinstance(node.test.left, ast.Name)
+                    )
+                    and node.test.left.id == "__name__"
+                    and (
+                        len(node.test.ops) == 1
+                        and isinstance(node.test.ops[0], ast.Eq)
+                        and len(node.test.comparators) == 1
+                        and isinstance(node.test.comparators[0], ast.Str)
+                        and node.test.comparators[0].s == "__main__"
+                    )
+                ):
                     result["entry_points"].append(str(relative_path))
 
         # Identify API surface (public functions and classes)
         for file_path, tree in self._ast_cache.items():
-            relative_path = file_path.relative_to(self.project_path)
             module_name = self._get_module_name(file_path)
 
             public_api = {
@@ -581,6 +609,7 @@ class CodeAnalyzer:
             "design_patterns": defaultdict(list),
             "anti_patterns": defaultdict(list),
             "common_idioms": defaultdict(int),
+            "pattern_locations": [],  # Store detailed location information
         }
 
         # Pattern definitions
@@ -638,30 +667,71 @@ class CodeAnalyzer:
 
         # Scan for patterns
         for file_path, tree in self._ast_cache.items():
-            relative_path = str(file_path.relative_to(self.project_path))
+            try:
+                # Use relative path for reporting
+                relative_path = str(file_path.relative_to(self.project_path))
 
-            # Check for design patterns
-            for pattern_name, pattern_defs in design_patterns.items():
-                for node_type, condition in pattern_defs:
-                    for node in ast.walk(tree):
-                        if isinstance(node, node_type) and condition(node):
-                            result["design_patterns"][pattern_name].append(
-                                relative_path
+                # Check for design patterns
+                for pattern_name, pattern_defs in design_patterns.items():
+                    for node_type, condition in pattern_defs:
+                        for node in ast.walk(tree):
+                            try:
+                                if isinstance(node, node_type) and condition(node):
+                                    # Store more detailed information
+                                    pattern_info = {
+                                        "file": relative_path,
+                                        "type": "design_pattern",
+                                        "name": pattern_name,
+                                        "line": getattr(node, "lineno", 0),
+                                        "col": getattr(node, "col_offset", 0),
+                                    }
+                                    result["pattern_locations"].append(pattern_info)
+                                    result["design_patterns"][pattern_name].append(
+                                        relative_path
+                                    )
+                            except Exception as e:
+                                self.logger.warning(
+                                    f"Error analyzing pattern {pattern_name} in {relative_path}: {e}"
+                                )
+
+                # Check for anti-patterns
+                for pattern_name, pattern_defs in anti_patterns.items():
+                    for node_type, condition in pattern_defs:
+                        for node in ast.walk(tree):
+                            try:
+                                if isinstance(node, node_type) and condition(node):
+                                    # Store more detailed information
+                                    pattern_info = {
+                                        "file": relative_path,
+                                        "type": "anti_pattern",
+                                        "name": pattern_name,
+                                        "line": getattr(node, "lineno", 0),
+                                        "col": getattr(node, "col_offset", 0),
+                                    }
+                                    result["pattern_locations"].append(pattern_info)
+                                    result["anti_patterns"][pattern_name].append(
+                                        relative_path
+                                    )
+                            except Exception as e:
+                                self.logger.warning(
+                                    f"Error analyzing anti-pattern {pattern_name} in {relative_path}: {e}"
+                                )
+
+                # Check for common idioms
+                for idiom_name, idiom_defs in idioms.items():
+                    for node_type, condition in idiom_defs:
+                        try:
+                            count = sum(
+                                bool(isinstance(node, node_type) and condition(node))
+                                for node in ast.walk(tree)
                             )
-
-            # Check for anti-patterns
-            for pattern_name, pattern_defs in anti_patterns.items():
-                for node_type, condition in pattern_defs:
-                    for node in ast.walk(tree):
-                        if isinstance(node, node_type) and condition(node):
-                            result["anti_patterns"][pattern_name].append(relative_path)
-
-            # Check for common idioms
-            for idiom_name, idiom_defs in idioms.items():
-                for node_type, condition in idiom_defs:
-                    count = sum(bool(isinstance(node, node_type) and condition(node))
-                            for node in ast.walk(tree))
-                    result["common_idioms"][idiom_name] += count
+                            result["common_idioms"][idiom_name] += count
+                        except Exception as e:
+                            self.logger.warning(
+                                f"Error analyzing idiom {idiom_name} in {relative_path}: {e}"
+                            )
+            except Exception as e:
+                self.logger.error(f"Error analyzing patterns in {file_path}: {e}")
 
         # Convert defaultdicts to regular dicts for serialization
         result["design_patterns"] = dict(result["design_patterns"])
@@ -675,6 +745,7 @@ class CodeAnalyzer:
         Analyze test coverage if coverage data is available.
 
         Returns:
+        Returns:
             Dictionary with test coverage analysis.
         """
         self.logger.info("Analyzing test coverage")
@@ -682,7 +753,6 @@ class CodeAnalyzer:
         result = {
             "coverage_available": False,
             "total_coverage": 0.0,
-            "module_coverage": {},
             "untested_functions": [],
         }
 
@@ -696,10 +766,9 @@ class CodeAnalyzer:
         # This would parse coverage.py's data format if available
         # For projects with coverage data, we would:
         # 1. Parse the coverage data file
-        # 2. Extract per-file and per-function coverage metrics
-        # 3. Identify untested functions and modules
-        # 4. Calculate overall coverage statistics
-        
+        # 2. Identify untested functions and modules
+        # 3. Calculate overall coverage statistics
+
         # For now, just provide a placeholder
         result["coverage_available"] = False
         return result
@@ -728,10 +797,10 @@ class CodeAnalyzer:
     def _is_entry_point(self, tree: ast.AST) -> bool:
         """
         Check if an AST contains a __main__ block, indicating it's an entry point.
-        
+
         Args:
             tree: AST of a Python file
-            
+
         Returns:
             True if the file has a __main__ block, False otherwise
         """
@@ -739,27 +808,31 @@ class CodeAnalyzer:
             # Check for if __name__ == "__main__" pattern
             if not isinstance(node, ast.If):
                 continue
-                
+
             # Check for Compare node with __name__ as left operand
             if not (hasattr(node, "test") and isinstance(node.test, ast.Compare)):
                 continue
-                
+
             # Verify left side is __name__
-            if not (hasattr(node.test, "left") and 
-                   isinstance(node.test.left, ast.Name) and 
-                   node.test.left.id == "__name__"):
+            if not (
+                hasattr(node.test, "left")
+                and isinstance(node.test.left, ast.Name)
+                and node.test.left.id == "__name__"
+            ):
                 continue
-                
+
             # Check for == operator and "__main__" string
-            if (len(node.test.ops) == 1 and 
-                isinstance(node.test.ops[0], ast.Eq) and
-                len(node.test.comparators) == 1 and
-                isinstance(node.test.comparators[0], ast.Str) and
-                node.test.comparators[0].s == "__main__"):
+            if (
+                len(node.test.ops) == 1
+                and isinstance(node.test.ops[0], ast.Eq)
+                and len(node.test.comparators) == 1
+                and isinstance(node.test.comparators[0], ast.Str)
+                and node.test.comparators[0].s == "__main__"
+            ):
                 return True
-                
+
         return False
-        
+
     def _is_internal_module(self, module_name: str) -> bool:
         """
         Check if a module name refers to an internal project module.
@@ -824,7 +897,7 @@ class CodeAnalyzer:
     def _detect_naming_inconsistencies(self, naming_data: Dict) -> List[Dict]:
         """
         Detect inconsistencies in naming conventions.
-
+                        "recommendation": "Use snake_case for variables and SCREAMING_SNAKE_CASE for constants",  # TODO: Line too long, needs manual fixing
         Args:
             naming_data: Dictionary with naming analysis.
 
@@ -894,6 +967,7 @@ class CodeAnalyzer:
         import_structure: Dict,
         complexity_metrics: Dict,
         name_registry: Dict,
+        module_structure: Dict,
         test_coverage: Dict,
     ) -> Dict:
         """
@@ -904,6 +978,7 @@ class CodeAnalyzer:
             import_structure: Import analysis results.
             complexity_metrics: Complexity analysis results.
             name_registry: Naming analysis results.
+            module_structure: Module structure analysis results.
             test_coverage: Test coverage analysis results.
 
         Returns:
@@ -926,6 +1001,11 @@ class CodeAnalyzer:
                 )
             ),
             "naming_consistency": len(name_registry.get("inconsistencies", [])) == 0,
+            "entry_points": len(module_structure.get("entry_points", [])),
+            "api_surface_size": sum(
+                len(api.get("classes", [])) + len(api.get("functions", []))
+                for api in module_structure.get("api_surface", {}).values()
+            ),
         }
 
         # Calculate average and maximum complexity

@@ -5,22 +5,18 @@ This package provides Git hooks that can be installed in a Git repository
 to enforce PS2 standards during the Git workflow.
 """
 
-import os
-import shutil
-import stat
-from pathlib import Path
-from typing import List, Optional
+from typing import List, Optional  # TODO: Remove unused imports
 
 
 def install_git_hooks(
-    repo_path: str, hooks_to_install: Optional[List[str]] = None, force: bool = False
+from typing import List, Optional  # TODO: Remove unused imports  # TODO: Remove unused imports
 ) -> List[str]:
     """
     Install PS2 Git hooks into a Git repository.
 
     Args:
         repo_path: Path to the Git repository.
-        hooks_to_install: List of hook names to install. If None, install all hooks.
+        hooks_to_install: List of hook names to install. If None, install all hooks.  # TODO: Line too long, needs manual fixing
         force: Whether to overwrite existing hooks.
 
     Returns:
@@ -81,7 +77,7 @@ def uninstall_git_hooks(
 
     Args:
         repo_path: Path to the Git repository.
-        hooks_to_uninstall: List of hook names to uninstall. If None, uninstall all hooks.
+        hooks_to_uninstall: List of hook names to uninstall. If None, uninstall all hooks.  # TODO: Line too long, needs manual fixing
 
     Returns:
         List of uninstalled hook names.

@@ -4,13 +4,10 @@ Validation Helper Module for PS2 CLI.
 This module provides helper functions for validating user input in the PS2 CLI.
 """
 
-import os
-import re
-from pathlib import Path
-from typing import Optional, List, Tuple, Any
+from typing import Optional, List, Tuple, Any  # TODO: Remove unused imports
 
 
-def validate_project_name(name: str) -> Tuple[bool, str]:
+from typing import Optional, List, Tuple, Any  # TODO: Remove unused imports  # TODO: Remove unused imports
     """
     Validate a project name.
 
@@ -128,7 +125,8 @@ def validate_email(email: str) -> Tuple[bool, str]:
         return True, "Email is optional"
 
     # Simple email validation regex
-    if not re.match(r"^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$", email):
+    if not re.match(r"^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$",
+        email)
         return False, f"Invalid email format: {email}"
 
     return True, "Email is valid"

@@ -4,11 +4,21 @@ Formatting Helper Module for PS2 CLI.
 This module provides helper functions for formatting output in the PS2 CLI.
 """
 
-import json
-from typing import Dict, Any, Optional, Union
+from typing import Dict, Any, Optional, Union  # TODO: Remove unused imports
+from typing import (
+    Dict,
+    Any,
+    Optional,
+    Union,
+)  # TODO: Remove unused imports  # TODO: Remove unused imports
 
 try:
-    from colorama import Fore, Style, init
+    from colorama import Fore, Style, init  # TODO: Remove unused imports
+    from colorama import (
+        Fore,
+        Style,
+        init,
+    )  # TODO: Remove unused imports  # TODO: Remove unused imports
 
     init()
     HAS_COLORAMA = True

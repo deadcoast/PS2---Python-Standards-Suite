@@ -5,21 +5,13 @@ This module provides a command-line interface for using the PS2 system,
 allowing users to access PS2 features directly from the terminal.
 """
 
-import argparse
-import json
-import logging
-import os
-import sys
-from pathlib import Path
-from typing import Dict, List, Any, Optional, Union
+from typing import Dict, List, Any, Optional, Union  # TODO: Remove unused imports
 
 # Add parent directory to path to allow importing PS2 modules
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
-from ps2 import initialize_ps2
-from ps2.config import default_settings
 
-
+from typing import Dict, List, Any, Optional, Union  # TODO: Remove unused imports  # TODO: Line too long, needs manual fixing  # TODO: Remove unused imports
 def parse_args() -> argparse.Namespace:
     """
     Parse command line arguments.
@@ -28,7 +20,9 @@ def parse_args() -> argparse.Namespace:
         Parsed arguments namespace.
     """
     parser = argparse.ArgumentParser(
-        description="Python Standards Suite (PS2) - Enforce Python coding standards"
+        description = """
+            Python Standards Suite (PS2) - Enforce Python coding standards
+        """
     )
 
     # Global options
@@ -53,7 +47,8 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--no-color", help="Disable colored output", action="store_true"
     )
-
+    subparsers = parser.add_subparsers(dest="command",
+        help="PS2 command to run")
     # Commands
     subparsers = parser.add_subparsers(dest="command", help="PS2 command to run")
 
@@ -86,7 +81,8 @@ def parse_args() -> argparse.Namespace:
         help="Type of check to perform (default: all)",
         choices=["all", "style", "lint", "type", "doc", "complexity"],
         default="all",
-    )
+    conflict_parser = subparsers.add_parser("conflicts",
+        help="Detect naming conflicts")
 
     # Detect conflicts command
     conflict_parser = subparsers.add_parser("conflicts", help="Detect naming conflicts")
@@ -104,7 +100,8 @@ def parse_args() -> argparse.Namespace:
 
     # Detect duplications command
     duplication_parser = subparsers.add_parser(
-        "duplications", help="Detect code duplications"
+    import_parser = subparsers.add_parser("imports",
+        help="Enforce import standards")
     )
 
     # Enforce imports command
@@ -118,7 +115,8 @@ def parse_args() -> argparse.Namespace:
         "-d",
         "--duration",
         help="Duration to monitor in seconds (default: 3600)",
-        type=int,
+    security_parser = subparsers.add_parser("security",
+        help="Scan for security issues")
         default=3600,
     )
 
@@ -172,7 +170,6 @@ def setup_logging(verbose: bool, no_color: bool) -> logging.Logger:
         )
     else:
         try:
-            import coloredlogs
 
             coloredlogs.install(
                 level=log_level,
@@ -213,16 +210,16 @@ def print_result(result: Dict, no_color: bool) -> None:
         print(f"Message: {result.get('message', '')}")
     else:
         try:
-            from colorama import Fore, Style, init
+            from colorama import Fore, Style, init  # TODO: Remove unused imports
 
             init()
-
+            from colorama import Fore, Style, init  # TODO: Remove unused imports  # TODO: Line too long, needs manual fixing  # TODO: Remove unused imports
             if result.get("status") == "pass":
                 status_str = Fore.GREEN + "PASS" + Style.RESET_ALL
             elif result.get("status") == "fail":
                 status_str = Fore.RED + "FAIL" + Style.RESET_ALL
             elif result.get("status") == "fixed":
-                status_str = Fore.YELLOW + "FIXED" + Style.RESET_ALL
+            from colorama import Fore, Style, init  # TODO: Remove unused imports  # TODO: Remove unused imports
             elif result.get("status") == "info":
                 status_str = Fore.BLUE + "INFO" + Style.RESET_ALL
             else:
@@ -365,7 +362,6 @@ def main() -> int:
     except Exception as e:
         logger.error(f"Command failed: {e}")
         if args.verbose:
-            import traceback
 
             traceback.print_exc()
         return 1

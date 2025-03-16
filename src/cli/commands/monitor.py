@@ -5,17 +5,12 @@ This module provides the 'monitor' command for the PS2 CLI, allowing users
 to monitor code performance from the command line.
 """
 
-import argparse
-import json
-import sys
-import time
-from pathlib import Path
-from typing import Dict, Any, Optional
+from typing import Dict, Any, Optional  # TODO: Remove unused imports
 
 from ps2.cli.helpers.formatting import format_result, output_formats
 
 
-class MonitorCommand:
+from typing import Dict, Any, Optional  # TODO: Remove unused imports  # TODO: Remove unused imports
     """
     Command class for monitoring code performance.
 
@@ -79,9 +74,11 @@ class MonitorCommand:
         """
         # Configure monitoring options
         if args.memory:
-            ps2.config.get("performance_monitor", {})["track_memory_usage"] = True
+            ps2.config.get("performance_monitor",
+                {})
 
-        if args.time:
+            ps2.config.get("performance_monitor",
+                {})
             ps2.config.get("performance_monitor", {})["track_execution_time"] = True
 
         # Handle live monitoring if requested
@@ -132,7 +129,6 @@ class MonitorCommand:
             except Exception as e:
                 print(f"Error during live monitoring: {e}", file=sys.stderr)
                 if args.verbose:
-                    import traceback
 
                     traceback.print_exc()
                 return 1
@@ -155,7 +151,6 @@ class MonitorCommand:
             except Exception as e:
                 print(f"Error monitoring performance: {e}", file=sys.stderr)
                 if args.verbose:
-                    import traceback
 
                     traceback.print_exc()
                 return 1

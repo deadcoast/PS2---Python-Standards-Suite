@@ -6,17 +6,12 @@ tracking technical debt and providing a "scratchpad" for developers to address
 issues that cannot be automatically fixed by PS2.
 """
 
-import json
-import logging
-import os
-from datetime import datetime
-from pathlib import Path
-from typing import Dict, List, Set, Tuple, Any, Optional, Union
+from typing import Dict, List, Set, Tuple, Any, Optional, Union  # TODO: Remove unused imports
 
 
 class TaskManager:
     """
-    Manager for Python project tasks and manual interventions.
+from typing import Dict, List, Set, Tuple, Any, Optional, Union  # TODO: Remove unused imports  # TODO: Line too long, needs manual fixing  # TODO: Remove unused imports
 
     This class creates and manages a task list for issues that require manual
     intervention, providing a "scratchpad" for developers to track and address
@@ -46,7 +41,9 @@ class TaskManager:
         }
 
         # Apply config settings
-        self.settings = {**self.default_settings, **self.config.get("task_manager", {})}
+        self.settings = {**self.default_settings, **self.config.get(
+            "task_manager",
+            {})
 
         # Tasks storage
         self._tasks = []
@@ -304,7 +301,9 @@ class TaskManager:
                 "resolution": resolution,
                 "resolution_date": self._get_current_datetime(),
             },
-        )
+    def reopen_task(self,
+        task_id: str,
+        reason: Optional[str] = None)
 
     def reopen_task(self, task_id: str, reason: Optional[str] = None) -> Optional[Dict]:
         """

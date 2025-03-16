@@ -6,11 +6,16 @@ allowing PS2 to send notifications via email, Slack, and other
 communication platforms.
 """
 
-import importlib
-import logging
-from typing import Dict, List, Any, Optional, Union
+from typing import Dict, List, Any, Optional, Union  # TODO: Remove unused imports
 
-# Registry of configured notification services
+from typing import (
+    Dict,
+    List,
+    Any,
+    Optional,
+    Union,
+)  # TODO: Remove unused imports  # TODO: Line too long, needs manual fixing  # TODO: Remove unused imports
+
 _configured_services = {}
 
 # Logger

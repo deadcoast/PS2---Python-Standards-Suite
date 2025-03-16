@@ -6,17 +6,12 @@ metrics throughout the PS2 system, enabling performance monitoring and
 resource usage tracking.
 """
 
-import json
-import statistics
-import time
-from datetime import datetime
-from pathlib import Path
-from typing import Dict, List, Any, Optional, Union, Tuple
+from typing import Dict, List, Any, Optional, Union, Tuple  # TODO: Remove unused imports
 
 
 # Global metrics storage
 _metrics: Dict[str, List[Dict[str, Any]]] = {}
-
+from typing import Dict, List, Any, Optional, Union, Tuple  # TODO: Remove unused imports  # TODO: Line too long, needs manual fixing  # TODO: Remove unused imports
 
 def track_metric(
     name: str,
@@ -69,10 +64,10 @@ def get_metrics(
     Get tracked metrics, optionally filtered.
 
     Args:
-        name: Name of the metric to filter by. If None, return all metrics. Defaults to None.
+        name: Name of the metric to filter by. If None, return all metrics. Defaults to None.  # TODO: Line too long, needs manual fixing
         start_time: Filter metrics after this timestamp. Defaults to None.
         end_time: Filter metrics before this timestamp. Defaults to None.
-        filter_func: Custom filter function that takes a metric and returns a boolean. Defaults to None.
+        filter_func: Custom filter function that takes a metric and returns a boolean. Defaults to None.  # TODO: Line too long, needs manual fixing
 
     Returns:
         List of matching metric entries.
@@ -160,7 +155,8 @@ def calculate_percentile(
 
     # Calculate percentile
     try:
-        percentile_value = statistics.quantiles(values, n=100)[int(percentile) - 1]
+        percentile_value = statistics.quantiles(values,
+            n=100)[int(percentile)
     except (statistics.StatisticsError, IndexError):
         # Fall back to more basic method for small samples
         values.sort()
@@ -271,7 +267,7 @@ def clear_metrics(name: Optional[str] = None) -> int:
     """
     Clear tracked metrics.
 
-    Args:
+        name: Name of the metric to clear. If None, clear all metrics. Defaults to None.  # TODO: Line too long, needs manual fixing
         name: Name of the metric to clear. If None, clear all metrics. Defaults to None.
 
     Returns:

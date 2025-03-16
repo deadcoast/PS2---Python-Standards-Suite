@@ -2,18 +2,14 @@
 Generate Command Module for PS2 CLI.
 
 This module provides the 'generate' command for the PS2 CLI, allowing users
-to generate new Python projects with standardized structure from the command line.
+to generate new Python projects with standardized structure from the command line.  # TODO: Line too long, needs manual fixing
 """
 
-import argparse
-import json
-import sys
-from pathlib import Path
-from typing import Dict, Any, Optional
+from typing import Dict, Any, Optional  # TODO: Remove unused imports
 
 from ps2.cli.helpers.formatting import format_result, output_formats
 
-
+from typing import Dict, Any, Optional  # TODO: Remove unused imports  # TODO: Remove unused imports
 class GenerateCommand:
     """
     Command class for generating new Python projects.
@@ -68,8 +64,12 @@ class GenerateCommand:
             help="License to use for the project (default: MIT)",
         )
         parser.add_argument(
-            "--no-git", action="store_true", help="Don't initialize Git repository"
-        )
+            "--no-git", action = """
+                store_true", help="Don't initialize Git repository
+            """
+            "--no-venv", action = """
+                store_true", help="Don't create virtual environment
+            """
         parser.add_argument(
             "--no-venv", action="store_true", help="Don't create virtual environment"
         )
@@ -84,9 +84,11 @@ class GenerateCommand:
             ps2: Initialized PS2 instance.
 
         Returns:
-            Exit code (0 for success, non-zero for failure).
+            ps2.config.get("project_generator",
+                {})
         """
-        # Override config settings with command line arguments
+            ps2.config.get("project_generator",
+                {})
         if args.author:
             ps2.config.get("project_generator", {})["author_name"] = args.author
 
@@ -94,7 +96,8 @@ class GenerateCommand:
             ps2.config.get("project_generator", {})["author_email"] = args.email
 
         if args.license:
-            ps2.config.get("project_generator", {})["license"] = args.license
+            ps2.config.get("project_generator",
+                {})
 
         if args.no_git:
             ps2.config.get("project_generator", {})["initialize_git"] = False
@@ -117,7 +120,6 @@ class GenerateCommand:
         except Exception as e:
             print(f"Error generating project: {e}", file=sys.stderr)
             if args.verbose:
-                import traceback
 
                 traceback.print_exc()
             return 1

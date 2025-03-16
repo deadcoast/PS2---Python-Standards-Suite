@@ -6,22 +6,23 @@ ensuring consistent naming conventions and preventing collisions that
 could lead to unexpected behavior or bugs.
 """
 
-import ast
 import logging
+from pathlib import Path
 import os
 import re
+import ast
+import builtins
 from collections import defaultdict
-from pathlib import Path
-from typing import Dict, List, Set, Tuple, Any, Optional, Union
+from typing import Dict, List, Union
 
 
 class ConflictResolver:
     """
-    Resolver for naming conflicts in Python projects.
-
-    This class identifies and resolves naming conflicts in Python projects,
-    enforcing consistent naming conventions and preventing collisions that
-    could lead to unexpected behavior or bugs.
+        Resolver for naming conflicts in Python projects.
+    from typing import Dict, List, Set, Tuple, Any, Optional, Union  # TODO: Remove unused imports  # TODO: Line too long, needs manual fixing  # TODO: Remove unused imports
+        This class identifies and resolves naming conflicts in Python projects,
+        enforcing consistent naming conventions and preventing collisions that
+        could lead to unexpected behavior or bugs.
     """
 
     def __init__(self, project_path: Union[str, Path], config: Dict):
@@ -147,7 +148,6 @@ class ConflictResolver:
             for file in files:
                 if file.endswith(".py"):
                     file_path = Path(root) / file
-                    # Check if file matches any exclude pattern
                     if not any(
                         re.match(pattern, str(file_path.relative_to(self.project_path)))
                         for pattern in exclude_patterns
@@ -319,12 +319,11 @@ class ConflictResolver:
                                 "qualified_name": qualified_name,
                                 "module": module_name,
                                 "scope": scope,
-                                "file": tree.source_file,
-                                "line": node.lineno,
-                                "type": "constant",
                                 "convention": self.parent._check_naming_convention(
                                     var_name, "constant"
                                 ),
+                                "line": node.lineno,
+                                "type": "constant",
                             }
                         else:
                             registry["variables"][qualified_name] = {
@@ -332,12 +331,11 @@ class ConflictResolver:
                                 "qualified_name": qualified_name,
                                 "module": module_name,
                                 "scope": scope,
-                                "file": tree.source_file,
-                                "line": node.lineno,
-                                "type": "variable",
                                 "convention": self.parent._check_naming_convention(
                                     var_name, "variable"
                                 ),
+                                "line": node.lineno,
+                                "type": "variable",
                             }
 
                 self.generic_visit(node)
@@ -357,6 +355,9 @@ class ConflictResolver:
                         "file": tree.source_file,
                         "line": node.lineno,
                         "type": "import",
+                        "convention": self.parent._check_naming_convention(
+                            asname, "import"
+                        ),
                     }
 
                 self.generic_visit(node)
@@ -377,6 +378,9 @@ class ConflictResolver:
                             "file": tree.source_file,
                             "line": node.lineno,
                             "type": "import",
+                            "convention": self.parent._check_naming_convention(
+                                asname, "import"
+                            ),
                         }
 
                 self.generic_visit(node)
@@ -397,23 +401,18 @@ class ConflictResolver:
         """
         self.logger.info("Checking for naming conflicts")
 
-        conflicts = []
-
-        # Check for module name conflicts with built-ins
-        for module_name, module_info in registry["modules"].items():
-            if self._is_builtin(module_name.split(".")[-1]):
-                conflicts.append(
-                    {
-                        "type": "builtin_conflict",
-                        "name": module_name,
-                        "conflict_with": "built-in",
-                        "file": str(module_info["file"].relative_to(self.project_path)),
-                        "item_type": "module",
-                        "severity": "medium",
-                        "fix_suggestion": f"Rename module to avoid conflict with built-in",
-                    }
-                )
-
+        conflicts = [
+            {
+                "type": "builtin_conflict",
+                "name": module_name,
+                "conflict_with": "built-in",
+                "item_type": "module",
+                "severity": "medium",
+                "fix_suggestion": "Rename module to avoid conflict with built-in",
+            }
+            for module_name, module_info in registry["modules"].items()
+            if self._is_builtin(module_name.split(".")[-1])
+        ]
         # Build name registry by scope
         scope_registry = self._build_scope_registry(registry)
 
@@ -430,40 +429,38 @@ class ConflictResolver:
                     # Check if this is a protected name
                     is_protected = name in self.settings["protected_names"]
 
-                    # Skip certain conflicts
-                    if not is_protected and all(
-                        item["type"] == items[0]["type"] for item in items
-                    ):
-                        # All items are of the same type, skip unless it's a method or function
-                        if items[0]["type"] not in ["method", "function"]:
-                            continue
-
+                # Skip certain conflicts
+                if (
+                    is_protected
+                    or any(item["type"] != items[0]["type"] for item in items)
+                    or items[0]["type"] in ["method", "function"]
+                ):
                     # Create conflict entry
-                    conflict = {
-                        "type": "name_conflict",
-                        "name": name,
-                        "scope": scope,
-                        "items": [
-                            {
-                                "name": item["name"],
-                                "qualified_name": item.get(
-                                    "qualified_name", f"{scope}.{name}"
-                                ),
-                                "type": item["type"],
-                                "file": (
-                                    str(item["file"].relative_to(self.project_path))
-                                    if "file" in item
-                                    else "unknown"
-                                ),
-                                "line": item.get("line", 0),
-                            }
-                            for item in items
-                        ],
-                        "severity": "high" if is_protected else "medium",
-                        "fix_suggestion": f"Rename conflicting {'protected ' if is_protected else ''}name",
-                    }
-
-                    conflicts.append(conflict)
+                    conflicts.append(
+                        {
+                            "type": "name_conflict",
+                            "name": name,
+                            "scope": scope,
+                            "items": [
+                                {
+                                    "name": item["name"],
+                                    "qualified_name": item.get(
+                                        "qualified_name", f"{scope}.{name}"
+                                    ),
+                                    "type": item["type"],
+                                    "file": (
+                                        str(item["file"].relative_to(self.project_path))
+                                        if "file" in item
+                                        else "unknown"
+                                    ),
+                                    "line": item.get("line", 0),
+                                }
+                                for item in items
+                            ],
+                            "severity": "high" if is_protected else "medium",
+                            "fix_suggestion": f"Rename conflicting {'protected ' if is_protected else ''}name",
+                        }
+                    )
 
         # Check for conflicts with imports
         import_conflicts = self._check_import_conflicts(registry, scope_registry)
@@ -471,372 +468,348 @@ class ConflictResolver:
 
         return conflicts
 
-    def _check_import_conflicts(
-        self, registry: Dict, scope_registry: Dict
-    ) -> List[Dict]:
-        """
-        Check for conflicts between imports and other names.
 
-        Args:
-            registry: Complete naming registry.
-            scope_registry: Registry organized by scope.
+def _check_import_conflicts(self, registry: Dict, scope_registry: Dict) -> List[Dict]:
+    """
+    Check for conflicts between imports and other names.
 
-        Returns:
-            List of import conflict dictionaries.
-        """
-        conflicts = []
+    Args:
+        registry: Complete naming registry.
+        scope_registry: Registry organized by scope.
 
-        for qualified_name, import_info in registry["imports"].items():
+    Returns:
+        List of import conflict dictionaries.
+    """
+    conflicts = []
+
+    for qualified_name, import_info in registry["imports"].items():
+        module = import_info["module"]
+
+        # Check for conflicts in the same module
+        if module in scope_registry:
             import_name = import_info["name"]
-            module = import_info["module"]
-
-            # Check for conflicts in the same module
-            if module in scope_registry:
-                for item in scope_registry[module]:
-                    if item["name"] == import_name and item["type"] != "import":
-                        # Found a conflict with a non-import
-                        conflicts.append(
-                            {
-                                "type": "import_conflict",
-                                "name": import_name,
-                                "scope": module,
-                                "items": [
-                                    {
-                                        "name": import_name,
-                                        "qualified_name": qualified_name,
-                                        "type": "import",
-                                        "file": str(
-                                            import_info["file"].relative_to(
-                                                self.project_path
-                                            )
-                                        ),
-                                        "line": import_info["line"],
-                                        "imported_from": import_info["imported_from"],
-                                    },
-                                    {
-                                        "name": item["name"],
-                                        "qualified_name": item.get(
-                                            "qualified_name", f"{module}.{item['name']}"
-                                        ),
-                                        "type": item["type"],
-                                        "file": (
-                                            str(
-                                                item["file"].relative_to(
-                                                    self.project_path
-                                                )
-                                            )
-                                            if "file" in item
-                                            else "unknown"
-                                        ),
-                                        "line": item.get("line", 0),
-                                    },
-                                ],
-                                "severity": "medium",
-                                "fix_suggestion": "Rename import using 'as' or rename the conflicting name",
-                            }
-                        )
-
-        return conflicts
-
-    def _check_naming_conventions(self, registry: Dict) -> List[Dict]:
-        """
-        Check for naming convention violations.
-
-        Args:
-            registry: Naming registry to check.
-
-        Returns:
-            List of naming violation dictionaries.
-        """
-        self.logger.info("Checking naming conventions")
-
-        violations = []
-
-        # Check classes
-        for qualified_name, class_info in registry["classes"].items():
-            if class_info["convention"] != self.settings["class_name_convention"]:
-                violations.append(
-                    {
-                        "type": "naming_convention",
-                        "name": class_info["name"],
-                        "qualified_name": qualified_name,
-                        "item_type": "class",
-                        "expected_convention": self.settings["class_name_convention"],
-                        "actual_convention": class_info["convention"],
-                        "file": str(class_info["file"].relative_to(self.project_path)),
-                        "line": class_info["line"],
-                        "severity": "low",
-                        "fix_suggestion": f"Rename class to follow {self.settings['class_name_convention']} convention",
-                    }
-                )
-
-        # Check functions
-        for qualified_name, func_info in registry["functions"].items():
-            if func_info["convention"] != self.settings["function_name_convention"]:
-                violations.append(
-                    {
-                        "type": "naming_convention",
-                        "name": func_info["name"],
-                        "qualified_name": qualified_name,
-                        "item_type": "function",
-                        "expected_convention": self.settings[
-                            "function_name_convention"
-                        ],
-                        "actual_convention": func_info["convention"],
-                        "file": str(func_info["file"].relative_to(self.project_path)),
-                        "line": func_info["line"],
-                        "severity": "low",
-                        "fix_suggestion": f"Rename function to follow {self.settings['function_name_convention']} convention",
-                    }
-                )
-
-        # Check methods
-        for qualified_name, method_info in registry["methods"].items():
-            if method_info["convention"] != self.settings["function_name_convention"]:
-                violations.append(
-                    {
-                        "type": "naming_convention",
-                        "name": method_info["name"],
-                        "qualified_name": qualified_name,
-                        "item_type": "method",
-                        "expected_convention": self.settings[
-                            "function_name_convention"
-                        ],
-                        "actual_convention": method_info["convention"],
-                        "file": str(method_info["file"].relative_to(self.project_path)),
-                        "line": method_info["line"],
-                        "severity": "low",
-                        "fix_suggestion": f"Rename method to follow {self.settings['function_name_convention']} convention",
-                    }
-                )
-
-        # Check variables
-        for qualified_name, var_info in registry["variables"].items():
-            if var_info["convention"] != self.settings["variable_name_convention"]:
-                violations.append(
-                    {
-                        "type": "naming_convention",
-                        "name": var_info["name"],
-                        "qualified_name": qualified_name,
-                        "item_type": "variable",
-                        "expected_convention": self.settings[
-                            "variable_name_convention"
-                        ],
-                        "actual_convention": var_info["convention"],
-                        "file": str(var_info["file"].relative_to(self.project_path)),
-                        "line": var_info["line"],
-                        "severity": "low",
-                        "fix_suggestion": f"Rename variable to follow {self.settings['variable_name_convention']} convention",
-                    }
-                )
-
-        # Check constants
-        for qualified_name, const_info in registry["constants"].items():
-            if const_info["convention"] != self.settings["constant_name_convention"]:
-                violations.append(
-                    {
-                        "type": "naming_convention",
-                        "name": const_info["name"],
-                        "qualified_name": qualified_name,
-                        "item_type": "constant",
-                        "expected_convention": self.settings[
-                            "constant_name_convention"
-                        ],
-                        "actual_convention": const_info["convention"],
-                        "file": str(const_info["file"].relative_to(self.project_path)),
-                        "line": const_info["line"],
-                        "severity": "low",
-                        "fix_suggestion": f"Rename constant to follow {self.settings['constant_name_convention']} convention",
-                    }
-                )
-
-        return violations
-
-    def _fix_conflicts(
-        self, conflicts: List[Dict], naming_violations: List[Dict]
-    ) -> List[Dict]:
-        """
-        Fix naming conflicts and violations.
-
-        Args:
-            conflicts: List of conflict dictionaries.
-            naming_violations: List of naming violation dictionaries.
-
-        Returns:
-            List of fixed conflict dictionaries.
-        """
-        self.logger.info(
-            f"Fixing conflicts: {len(conflicts)}, violations: {len(naming_violations)}"
-        )
-
-        fixed_items = []
-
-        # Only auto-rename if configured
-        if not self.settings["auto_rename"]:
-            self.logger.info("Auto-rename is disabled, skipping fixes")
-            return fixed_items
-
-        # This is a placeholder for a complete implementation
-        # In a real implementation, we would:
-        # 1. Determine which names to rename
-        # 2. Generate replacement names
-        # 3. Apply renames to the source files
-        # 4. Track what was fixed
-
-        # For now, we just log that fixes would be applied
-        for conflict in conflicts:
-            self.logger.info(
-                f"Would fix conflict: {conflict['name']} in {conflict['scope']}"
-            )
-            fixed_items.append(
+            conflicts.extend(
                 {
-                    "type": "fixed_conflict",
-                    "conflict_type": conflict["type"],
-                    "name": conflict["name"],
-                    "scope": conflict.get("scope", ""),
-                    "file": conflict["items"][0]["file"] if "items" in conflict else "",
-                    "fix_applied": "simulation",
+                    "type": "import_conflict",
+                    "name": import_name,
+                    "scope": module,
+                    "items": [
+                        {
+                            "name": import_name,
+                            "qualified_name": qualified_name,
+                            "type": "import",
+                            "file": str(
+                                import_info["file"].relative_to(self.project_path)
+                            ),
+                            "line": import_info["line"],
+                            "imported_from": import_info["imported_from"],
+                        },
+                        {
+                            "name": item["name"],
+                            "qualified_name": item.get(
+                                "qualified_name", f"{module}.{item['name']}"
+                            ),
+                            "type": item["type"],
+                            "file": (
+                                str(item["file"].relative_to(self.project_path))
+                                if "file" in item
+                                else "unknown"
+                            ),
+                            "fix_suggestion": "Rename import using 'as' or rename the conflicting name",  # TODO: Line too long, needs manual fixing
+                        },
+                    ],
+                    "severity": "medium",
+                    "fix_suggestion": "Rename import using 'as' or rename the conflicting name",
                 }
+                for item in scope_registry[module]
+                if item["name"] == import_name and item["type"] != "import"
             )
+    return conflicts
 
-        for violation in naming_violations:
-            self.logger.info(
-                f"Would fix naming violation: {violation['name']} in {violation['file']}"
-            )
-            fixed_items.append(
-                {
-                    "type": "fixed_violation",
-                    "violation_type": "naming_convention",
-                    "name": violation["name"],
-                    "qualified_name": violation["qualified_name"],
-                    "file": violation["file"],
-                    "fix_applied": "simulation",
-                }
-            )
 
+def _check_naming_conventions(self, registry: Dict) -> List[Dict]:
+    """
+    Check for naming convention violations.
+
+    Args:
+        registry: Naming registry to check.
+
+    Returns:
+        List of naming violation dictionaries.
+    """
+    self.logger.info("Checking naming conventions")
+
+    violations = [
+        {
+            "type": "naming_convention",
+            "name": class_info["name"],
+            "qualified_name": qualified_name,
+            "item_type": "class",
+            "expected_convention": self.settings["class_name_convention"],
+            "actual_convention": class_info["convention"],
+            "file": str(class_info["file"].relative_to(self.project_path)),
+            "line": class_info["line"],
+            "severity": "low",
+            "fix_suggestion": f"Rename class to follow {self.settings['class_name_convention']} convention",
+        }
+        for qualified_name, class_info in registry["classes"].items()
+        if class_info["convention"] != self.settings["class_name_convention"]
+    ]
+    # Check functions
+    violations.extend(
+        {
+            "type": "naming_convention",
+            "name": func_info["name"],
+            "qualified_name": qualified_name,
+            "item_type": "function",
+            "expected_convention": self.settings["function_name_convention"],
+            "actual_convention": func_info["convention"],
+            "file": str(func_info["file"].relative_to(self.project_path)),
+            "line": func_info["line"],
+            "severity": "low",
+            "fix_suggestion": f"Rename function to follow {self.settings['function_name_convention']} convention",
+        }
+        for qualified_name, func_info in registry["functions"].items()
+        if func_info["convention"] != self.settings["function_name_convention"]
+    )
+    # Check methods
+    violations.extend(
+        {
+            "type": "naming_convention",
+            "name": method_info["name"],
+            "qualified_name": qualified_name,
+            "item_type": "method",
+            "expected_convention": self.settings["function_name_convention"],
+            "actual_convention": method_info["convention"],
+            "file": str(method_info["file"].relative_to(self.project_path)),
+            "line": method_info["line"],
+            "severity": "low",
+            "fix_suggestion": f"Rename method to follow {self.settings['function_name_convention']} convention",
+        }
+        for qualified_name, method_info in registry["methods"].items()
+        if method_info["convention"] != self.settings["function_name_convention"]
+    )
+    # Check variables
+    violations.extend(
+        {
+            "type": "naming_convention",
+            "name": var_info["name"],
+            "qualified_name": qualified_name,
+            "item_type": "variable",
+            "expected_convention": self.settings["variable_name_convention"],
+            "actual_convention": var_info["convention"],
+            "file": str(var_info["file"].relative_to(self.project_path)),
+            "line": var_info["line"],
+            "severity": "low",
+            "fix_suggestion": f"Rename variable to follow {self.settings['variable_name_convention']} convention",
+        }
+        for qualified_name, var_info in registry["variables"].items()
+        if var_info["convention"] != self.settings["variable_name_convention"]
+    )
+    # Check constants
+    violations.extend(
+        {
+            "type": "naming_convention",
+            "name": const_info["name"],
+            "qualified_name": qualified_name,
+            "item_type": "constant",
+            "expected_convention": self.settings["constant_name_convention"],
+            "actual_convention": const_info["convention"],
+            "file": str(const_info["file"].relative_to(self.project_path)),
+            "line": const_info["line"],
+            "severity": "low",
+            "fix_suggestion": f"Rename constant to follow {self.settings['constant_name_convention']} convention",
+        }
+        for qualified_name, const_info in registry["constants"].items()
+        if const_info["convention"] != self.settings["constant_name_convention"]
+    )
+    return violations
+
+
+def _fix_conflicts(
+    self, conflicts: List[Dict], naming_violations: List[Dict]
+) -> List[Dict]:
+    """
+    Fix naming conflicts and violations.
+
+    Args:
+        conflicts: List of conflict dictionaries.
+        naming_violations: List of naming violation dictionaries.
+
+    Returns:
+        List of fixed conflict dictionaries.
+    """
+    self.logger.info(
+        f"Fixing conflicts: {len(conflicts)}, violations: {len(naming_violations)}"
+    )
+
+    fixed_items = []
+
+    # Only auto-rename if configured
+    if not self.settings["auto_rename"]:
+        self.logger.info("Auto-rename is disabled, skipping fixes")
         return fixed_items
 
-    def _build_scope_registry(self, registry: Dict) -> Dict[str, List[Dict]]:
-        """
-        Build a registry organized by scope.
+    # This is a placeholder for a complete implementation
+    # In a real implementation, we would:
+    # 1. Determine which names to rename
+    # 2. Generate replacement names
+    # 3. Apply renames to the source files
+    # 4. Track what was fixed
 
-        Args:
-            registry: Complete naming registry.
+    # For now, we just log that fixes would be applied
+    for conflict in conflicts:
+        self.logger.info(
+            f"Would fix conflict: {conflict['name']} in {conflict['scope']}"
+        )
+        fixed_items.append(
+            {
+                "type": "fixed_conflict",
+                "conflict_type": conflict["type"],
+                "name": conflict["name"],
+                "scope": conflict.get("scope", ""),
+                "file": conflict["items"][0]["file"] if "items" in conflict else "",
+                "fix_applied": "simulation",
+            }
+        )
 
-        Returns:
-            Dictionary mapping scopes to lists of name info dictionaries.
-        """
-        scope_registry = defaultdict(list)
+    for violation in naming_violations:
+        self.logger.info(
+            f"Would fix naming violation: {violation['name']} in {violation['file']}"
+        )
+        fixed_items.append(
+            {
+                "type": "fixed_violation",
+                "violation_type": "naming_convention",
+                "name": violation["name"],
+                "qualified_name": violation["qualified_name"],
+                "file": violation["file"],
+                "fix_applied": "simulation",
+            }
+        )
 
-        # Add classes
-        for qualified_name, class_info in registry["classes"].items():
-            module = class_info["module"]
-            scope_registry[module].append(class_info)
+    return fixed_items
 
-        # Add functions
-        for qualified_name, func_info in registry["functions"].items():
-            module = func_info["module"]
-            scope_registry[module].append(func_info)
 
-        # Add methods
-        for qualified_name, method_info in registry["methods"].items():
-            class_scope = f"{method_info['module']}.{method_info['class']}"
-            scope_registry[class_scope].append(method_info)
+def _build_scope_registry(self, registry: Dict) -> Dict[str, List[Dict]]:
+    """
+    Build a registry organized by scope.
 
-        # Add variables
-        for qualified_name, var_info in registry["variables"].items():
-            if var_info["scope"]:
-                # Class variable
-                scope = f"{var_info['module']}.{var_info['scope']}"
-            else:
-                # Module variable
-                scope = var_info["module"]
+    Args:
+        registry: Complete naming registry.
 
-            scope_registry[scope].append(var_info)
+    Returns:
+        Dictionary mapping scopes to lists of name info dictionaries.
+    """
+    scope_registry = defaultdict(list)
 
-        # Add constants
-        for qualified_name, const_info in registry["constants"].items():
-            if const_info["scope"]:
-                # Class constant
-                scope = f"{const_info['module']}.{const_info['scope']}"
-            else:
-                # Module constant
-                scope = const_info["module"]
+    # Add classes
+    for qualified_name, class_info in registry["classes"].items():
+        module = class_info["module"]
+        scope_registry[module].append(class_info)
 
-            scope_registry[scope].append(const_info)
+    # Add functions
+    for qualified_name, func_info in registry["functions"].items():
+        module = func_info["module"]
+        scope_registry[module].append(func_info)
 
-        # Add imports
-        for qualified_name, import_info in registry["imports"].items():
-            module = import_info["module"]
-            scope_registry[module].append(import_info)
+    # Add methods
+    for qualified_name, method_info in registry["methods"].items():
+        class_scope = f"{method_info['module']}.{method_info['class']}"
+        scope_registry[class_scope].append(method_info)
 
-        return dict(scope_registry)
+    # Add variables
+    for qualified_name, var_info in registry["variables"].items():
+        if var_info["scope"]:
+            # Class variable
+            scope = f"{var_info['module']}.{var_info['scope']}"
+        else:
+            # Module variable
+            scope = var_info["module"]
 
-    def _get_module_name(self, file_path: Path) -> str:
-        """
-        Get the Python module name from a file path.
+        scope_registry[scope].append(var_info)
 
-        Args:
-            file_path: Path to a Python file.
+    # Add constants
+    for qualified_name, const_info in registry["constants"].items():
+        if const_info["scope"]:
+            # Class constant
+            scope = f"{const_info['module']}.{const_info['scope']}"
+        else:
+            # Module constant
+            scope = const_info["module"]
 
-        Returns:
-            Module name as a string.
-        """
-        relative_path = file_path.relative_to(self.project_path)
-        parts = list(relative_path.parts)
-        if parts[-1].endswith(".py"):
-            parts[-1] = parts[-1][:-3]
+        scope_registry[scope].append(const_info)
 
-        # Skip __init__.py files for package names
-        if parts[-1] == "__init__":
-            parts.pop()
+    # Add imports
+    for qualified_name, import_info in registry["imports"].items():
+        module = import_info["module"]
+        scope_registry[module].append(import_info)
 
-        return ".".join(parts)
+    return dict(scope_registry)
 
-    def _check_naming_convention(self, name: str, name_type: str) -> str:
-        """
-        Check the naming convention of a name.
 
-        Args:
-            name: Name to check.
-            name_type: Type of name (class, function, etc.).
+def _get_module_name(self, file_path: Path) -> str:
+    """
+    Get the Python module name from a file path.
 
-        Returns:
-            Name of the convention used.
-        """
-        # PascalCase check
-        if re.match(r"^[A-Z][a-zA-Z0-9]*$", name):
-            return "PascalCase"
+    Args:
+        file_path: Path to a Python file.
 
-        # camelCase check
-        if re.match(r"^[a-z][a-zA-Z0-9]*$", name):
-            return "camelCase"
+    Returns:
+        Module name as a string.
+    """
+    relative_path = file_path.relative_to(self.project_path)
+    parts = list(relative_path.parts)
+    if parts[-1].endswith(".py"):
+        parts[-1] = parts[-1][:-3]
 
-        # snake_case check
-        if re.match(r"^[a-z][a-z0-9_]*$", name):
-            return "snake_case"
+    # Skip __init__.py files for package names
+    if parts[-1] == "__init__":
+        parts.pop()
 
-        # UPPER_SNAKE_CASE check
-        if re.match(r"^[A-Z][A-Z0-9_]*$", name):
-            return "UPPER_SNAKE_CASE"
+    return ".".join(parts)
 
-        # kebab-case check
-        if re.match(r"^[a-z][a-z0-9\-]*$", name):
-            return "kebab-case"
 
-        # Unknown convention
-        return "unknown"
+def _check_naming_convention(self, name: str, name_type: str) -> str:
+    """
+    Check the naming convention of a name.
 
-    def _is_builtin(self, name: str) -> bool:
-        """
-        Check if a name is a Python built-in.
+    Args:
+        name: Name to check.
+        name_type: Type of name (class, function, etc.).
 
-        Args:
-            name: Name to check.
+    Returns:
+        Name of the convention used.
+    """
+    # PascalCase check
+    if re.match(r"^[A-Z][a-zA-Z0-9]*$", name):
+        return "PascalCase"
 
-        Returns:
-            True if the name is a built-in, False otherwise.
-        """
-        import builtins
+    # camelCase check
+    if re.match(r"^[a-z][a-zA-Z0-9]*$", name):
+        return "camelCase"
 
-        return name in dir(builtins)
+    # snake_case check
+    if re.match(r"^[a-z][a-z0-9_]*$", name):
+        return "snake_case"
+
+    # UPPER_SNAKE_CASE check
+    if re.match(r"^[A-Z][A-Z0-9_]*$", name):
+        return "UPPER_SNAKE_CASE"
+
+    # kebab-case check
+    return "kebab-case" if re.match(r"^[a-z][a-z0-9\-]*$", name) else "unknown"
+
+
+def _is_builtin(self, name: str) -> bool:
+    """
+    Check if a name is a Python built-in.
+
+    Args:
+        name: Name to check.
+
+    Returns:
+        True if the name is a built-in, False otherwise.
+    """
+
+    return name in dir(builtins)

@@ -6,16 +6,7 @@ generation, virtual environment management, and dependency conflict resolution.
 """
 
 
-import contextlib
-import os
-import re
-import subprocess
-import logging
-import tempfile
-import json
-from pathlib import Path
-import pkg_resources
-from typing import Dict, List, Set, Tuple, Any, Optional, Union
+from typing import Dict, List, Set, Tuple, Any, Optional, Union  # TODO: Remove unused imports
 
 
 class DependencyManager:
@@ -24,7 +15,7 @@ class DependencyManager:
 
     This class handles requirements.txt generation, virtual environment
     management, and dependency conflict resolution, ensuring consistent
-    and reproducible dependencies for Python projects.
+from typing import Dict, List, Set, Tuple, Any, Optional, Union  # TODO: Remove unused imports  # TODO: Line too long, needs manual fixing  # TODO: Remove unused imports
     """
 
     def __init__(self, project_path: Union[str, Path], config: Dict):
@@ -112,7 +103,7 @@ class DependencyManager:
         updated_files = []
         if update and (missing_dependencies or outdated_dependencies):
             updated_files = self._update_requirements(
-                current_requirements, missing_dependencies, outdated_dependencies
+                current_requirements, missing_dependencies, outdated_dependencies  # TODO: Line too long, needs manual fixing
             )
 
         # Build result
@@ -242,7 +233,8 @@ class DependencyManager:
         self.logger.info(f"Found {len(requirements_files)} requirements files")
         return requirements_files
 
-    def _parse_requirements(self, requirements_files: List[Path]) -> Dict[str, Dict]:
+    def _parse_requirements(self,
+        requirements_files: List[Path])
         """
         Parse requirements from files.
 
@@ -269,7 +261,9 @@ class DependencyManager:
                 self._parse_requirements_txt(file_path, requirements)
 
         return requirements
-
+    def _parse_requirements_txt(self,
+        file_path: Path,
+        requirements: Dict)
     def _parse_requirements_txt(self, file_path: Path, requirements: Dict) -> None:
         """
         Parse a requirements.txt file.
@@ -332,7 +326,8 @@ class DependencyManager:
             if install_requires_match := re.search(
                 r"install_requires\s*=\s*\[(.*?)\]", content, re.DOTALL
             ):
-                install_requires = install_requires_match.group(1)
+                for package in re.finditer(r"['\"]([^'\"]+)['\"]",
+                    install_requires)
 
                 # Parse package names
                 for package in re.finditer(r"['\"]([^'\"]+)['\"]", install_requires):
@@ -359,7 +354,9 @@ class DependencyManager:
                         self.logger.warning(
                             f"Could not parse requirement '{package_str}' in {file_path}: {e}"
                         )
-
+    def _parse_pyproject_toml(self,
+        file_path: Path,
+        requirements: Dict)
         except (UnicodeDecodeError, PermissionError) as e:
             self.logger.warning(f"Could not read {file_path}: {e}")
 
@@ -372,7 +369,6 @@ class DependencyManager:
             requirements: Dictionary to update with parsed requirements.
         """
         try:
-            import tomli
 
             with open(file_path, "rb") as f:
                 data = tomli.load(f)
@@ -456,7 +452,6 @@ class DependencyManager:
             requirements: Dictionary to update with parsed requirements.
         """
         try:
-            import toml
 
             with open(file_path, "r", encoding="utf-8") as f:
                 data = toml.load(f)
@@ -502,7 +497,8 @@ class DependencyManager:
                         str(file_path.relative_to(self.project_path))
                     )
 
-                    # Parse version constraint
+                    elif isinstance(constraint,
+                        dict)
                     if isinstance(constraint, str):
                         if constraint != "*":
                             requirements[package_name]["specs"].append(
@@ -518,9 +514,7 @@ class DependencyManager:
         except (UnicodeDecodeError, PermissionError, toml.TomlDecodeError) as e:
             self.logger.warning(f"Could not read {file_path}: {e}")
 
-    def _find_unused_dependencies(
-        self, imports: Dict[str, Set[str]], requirements: Dict
-    ) -> List[Dict]:
+    def _find_unused_dependencies(self, imports: Dict[str, Set[str]], requirements: Dict) -> List[Dict]:
         """
         Find unused dependencies.
 
@@ -560,7 +554,7 @@ class DependencyManager:
 
         return unused
 
-    def _find_missing_dependencies(
+            imports: Dictionary mapping module names to sets of files using them.  # TODO: Line too long, needs manual fixing
         self, imports: Dict[str, Set[str]], requirements: Dict
     ) -> List[Dict]:
         """
@@ -581,7 +575,7 @@ class DependencyManager:
         import_to_package = self._get_import_package_mapping()
 
         for import_name, files in imports.items():
-            # Get possible package names for this import
+                package_name not in requirements for package_name in package_names  # TODO: Line too long, needs manual fixing
             package_names = import_to_package.get(
                 import_name.lower(), [import_name.lower()]
             )
@@ -611,7 +605,10 @@ class DependencyManager:
         Returns:
             List of outdated dependencies.
         """
-        self.logger.info("Finding outdated dependencies")
+            result = subprocess.run(cmd,
+                capture_output=True,
+                text=True,
+                check=False)
 
         outdated = []
 
@@ -701,7 +698,10 @@ class DependencyManager:
             with tempfile.NamedTemporaryFile(mode="w", delete=False) as temp:
                 for package_name, package_info in requirements.items():
                     if specs := package_info["specs"]:
-                        # Use the first spec as an example
+            result = subprocess.run(cmd,
+                capture_output=True,
+                text=True,
+                check=False)
                         op, version = specs[0]
                         temp.write(f"{package_name}{op}{version}\n")
                     else:
@@ -712,7 +712,8 @@ class DependencyManager:
             # Run safety check
             cmd = ["safety", "check", "--json", "-r", temp_path]
             result = subprocess.run(cmd, capture_output=True, text=True, check=False)
-
+                            "safe_version": vuln.get("fixed_version",
+                                "unknown")
             # Clean up temp file
             os.unlink(temp_path)
 
@@ -736,7 +737,7 @@ class DependencyManager:
 
         except (
             subprocess.SubprocessError,
-            json.JSONDecodeError,
+            current_requirements: Dictionary mapping package names to requirement info.  # TODO: Line too long, needs manual fixing
             FileNotFoundError,
         ) as e:
             self.logger.warning(f"Could not check for vulnerabilities: {e}")
@@ -767,7 +768,10 @@ class DependencyManager:
 
         # Create main requirements file if it doesn't exist
         if not main_requirements.exists() and (missing or outdated):
-            with open(main_requirements, "w", encoding="utf-8") as f:
+            self._update_requirements_txt(dev_requirements,
+                missing,
+                outdated,
+                dev=True)
                 f.write("# Generated by PS2 Dependency Manager\n\n")
 
             updated_files.append(str(main_requirements))
@@ -795,7 +799,8 @@ class DependencyManager:
     ) -> None:
         """
         Update a requirements.txt file.
-
+                    with contextlib.suppress(ValueError,
+                        pkg_resources.RequirementParseError)
         Args:
             file_path: Path to requirements.txt file.
             missing: List of missing dependencies.
@@ -884,7 +889,6 @@ class DependencyManager:
         Returns:
             Current datetime string.
         """
-        from datetime import datetime
 
         return datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 

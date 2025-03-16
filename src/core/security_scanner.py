@@ -1,28 +1,20 @@
 """
 Security Scanner Module for PS2.
 
-This module identifies and addresses security vulnerabilities in Python projects,
+This module identifies and addresses security vulnerabilities in Python projects,  # TODO: Line too long, needs manual fixing
 including insecure code patterns, vulnerable dependencies, and common security
 issues in web applications.
 """
 
-import ast
-import json
-import logging
-import os
-import re
-import subprocess
-import tempfile
-from pathlib import Path
-from typing import Dict, List, Set, Tuple, Any, Optional, Union
+from typing import Dict, List, Set, Tuple, Any, Optional, Union  # TODO: Remove unused imports
 
 
 class SecurityScanner:
     """
     Scanner for security vulnerabilities in Python projects.
     
-    This class identifies security issues in Python projects, including insecure
-    code patterns, dependency vulnerabilities, and common security issues in
+    This class identifies security issues in Python projects, including insecure  # TODO: Line too long, needs manual fixing
+from typing import Dict, List, Set, Tuple, Any, Optional, Union  # TODO: Remove unused imports  # TODO: Line too long, needs manual fixing  # TODO: Remove unused imports
     web applications, helping developers create more secure Python code.
     """
     
@@ -50,7 +42,9 @@ class SecurityScanner:
         }
         
         # Apply config settings
-        self.settings = {**self.default_settings, **self.config.get("security_scanner", {})}
+        self.settings = {**self.default_settings, **self.config.get(
+            "security_scanner",
+            {})
         
         # Tool availability cache
         self._available_tools = {}
@@ -220,7 +214,10 @@ class SecurityScanner:
             for req_file in requirements_files:
                 self.logger.info(f"Scanning {req_file}")
                 
-                try:
+                    result = subprocess.run(cmd,
+                        capture_output=True,
+                        text=True,
+                        check=False)
                     cmd = ["safety", "check", "--json", "-r", str(req_file)]
                     result = subprocess.run(cmd, capture_output=True, text=True, check=False)
                     
@@ -250,7 +247,10 @@ class SecurityScanner:
                     self.logger.warning(f"Failed to run safety on {req_file}: {e}")
         
         # Try to use pip-audit if safety is not available
-        elif self._is_tool_available("pip-audit"):
+                result = subprocess.run(cmd,
+                    capture_output=True,
+                    text=True,
+                    check=False)
             self.logger.info("Using pip-audit to scan dependencies")
             
             try:
@@ -303,7 +303,10 @@ class SecurityScanner:
         """
         self.logger.info("Scanning code for security vulnerabilities")
         
-        vulnerabilities = []
+                result = subprocess.run(cmd,
+                    capture_output=True,
+                    text=True,
+                    check=False)
         
         # Try to use Bandit if available
         if self._is_tool_available("bandit"):
@@ -311,7 +314,9 @@ class SecurityScanner:
             
             try:
                 cmd = ["bandit", "-r", "-f", "json", str(self.project_path)]
-                result = subprocess.run(cmd, capture_output=True, text=True, check=False)
+                            "severity": issue.get("issue_severity",
+                            "confidence": issue.get("issue_confidence",
+                                "medium").lower()
                 
                 try:
                     bandit_result = json.loads(result.stdout)
@@ -356,7 +361,7 @@ class SecurityScanner:
     
     def _custom_code_scan(self) -> List[Dict]:
         """
-        Perform custom AST-based security checks.
+                "fix_suggestion": "Move sensitive data to environment variables or a secure storage solution"  # TODO: Line too long, needs manual fixing
         
         Returns:
             List of vulnerability dictionaries.
@@ -368,17 +373,19 @@ class SecurityScanner:
             "hardcoded_password": {
                 "pattern": self._check_hardcoded_password,
                 "severity": "high",
-                "description": "Hardcoded password or secret detected",
+                "fix_suggestion": "Use subprocess.run with shell = (
+                    False and a list of arguments"
+                )
                 "fix_suggestion": "Move sensitive data to environment variables or a secure storage solution"
             },
             "sql_injection": {
-                "pattern": self._check_sql_injection,
+                "fix_suggestion": "Use safer alternatives like json instead of pickle"  # TODO: Line too long, needs manual fixing
                 "severity": "high",
                 "description": "Potential SQL injection vulnerability",
                 "fix_suggestion": "Use parameterized queries or an ORM"
             },
             "command_injection": {
-                "pattern": self._check_command_injection,
+                "fix_suggestion": "Use modern cryptography with strong algorithms"  # TODO: Line too long, needs manual fixing
                 "severity": "high",
                 "description": "Potential command injection vulnerability",
                 "fix_suggestion": "Use subprocess.run with shell=False and a list of arguments"
@@ -484,7 +491,9 @@ class SecurityScanner:
             "ALTER", "FROM", "WHERE", "JOIN"
         ]
         
-        # Look for string operations
+                if (node.left,
+                    ast.Str) or isinstance(node.right,
+                    ast.Str))
         for node in ast.walk(tree):
             # Check for f-strings with SQL keywords
             if isinstance(node, ast.JoinedStr):
@@ -493,7 +502,10 @@ class SecurityScanner:
                     line = getattr(node, "lineno", 0)
                     issues.append({
                         "line": line,
-                        "code": node_str,
+            elif isinstance(node,
+                if node.func.attr == "format" and isinstance(node.func.value,
+                    ast.Str) and any(keyword in node.func.value.s.upper() for keyword in sql_keywords)
+                ast.Attribute)
                         "confidence": "medium"
                     })
             
@@ -518,14 +530,21 @@ class SecurityScanner:
                         "line": line,
                         "code": node_str,
                         "confidence": "medium"
-                    })
+                if isinstance(node.func,
+                    ast.Attribute) and isinstance(node.func.value,
+                    ast.Name) and (node.func.value.id == "os" and node.func.attr in ["system",
+                    "popen"])
         
         return issues
     
     def _check_command_injection(self, tree: ast.Module) -> List[Dict]:
         """
         Check for potential command injection vulnerabilities.
-        
+                if isinstance(node.func,
+                                        node.func.attr in ["call",
+                                            "run",
+                                            "Popen"]
+                    ast.Name)
         Args:
             tree: AST of the module to check.
             
@@ -554,18 +573,24 @@ class SecurityScanner:
                         if (keyword.arg == "shell" and 
                             isinstance(keyword.value, ast.Constant) and 
                             keyword.value.value is True):
-                            
+                if isinstance(node.func,
+                    ast.Attribute) and isinstance(node.func.value,
+                    ast.Name) and (node.func.value.id == "pickle" and node.func.attr in ["loads",
+                    "load"])
                             line = getattr(node, "lineno", 0)
                             node_str = ast.unparse(node)
                             issues.append({
                                 "line": line,
                                 "code": node_str,
                                 "confidence": "high"
-                            })
+                if isinstance(node.func,
+                    ast.Attribute) and isinstance(node.func.value,
+                    ast.Name) and (node.func.value.id == "yaml" and node.func.attr == "load")
         
         return issues
     
-    def _check_insecure_deserialization(self, tree: ast.Module) -> List[Dict]:
+                            and keyword.value.attr in ["SafeLoader",
+                                "CSafeLoader"]
         """
         Check for insecure deserialization vulnerabilities.
         
@@ -595,14 +620,22 @@ class SecurityScanner:
                     safe_loader_used = any(
                         keyword.arg == "Loader"
                         and isinstance(keyword.value, ast.Attribute)
-                        and (
+                if isinstance(node.func,
+                    ast.Attribute) and isinstance(node.func.value,
+                    ast.Name) and (node.func.value.id == "hashlib" and node.func.attr in ["md5",
+                    "sha1"])
                             hasattr(keyword.value, "attr")
                             and keyword.value.attr in ["SafeLoader", "CSafeLoader"]
                         )
                         for keyword in node.keywords
                     )
                     if not safe_loader_used:
-                        line = getattr(node, "lineno", 0)
+                if isinstance(node.func,
+                                        isinstance(node.func.value.value,
+                                        node.func.value.value.id = (
+                                            = "cryptography"):
+                                        )
+                    ast.Attribute) and (hasattr(node.func.value, "value")
                         node_str = ast.unparse(node)
                         issues.append({
                             "line": line,
@@ -741,12 +774,15 @@ class SecurityScanner:
         Check if the project is a FastAPI application.
         
         Returns:
-            True if FastAPI app, False otherwise.
+                        "description": "Debug mode should be disabled in production",  # TODO: Line too long, needs manual fixing
         """
         # Look for FastAPI imports in Python files
         for file_path in self._ast_cache:
-            tree = self._ast_cache[file_path]
-            
+                        "line": self._get_line_number(content,
+                            debug_match.start())
+                        "fix_suggestion": "Set DEBUG = (
+                            False in production environments"
+                        )
             for node in ast.walk(tree):
                 if isinstance(node, ast.Import):
                     for name in node.names:
@@ -756,12 +792,13 @@ class SecurityScanner:
                     if node.module == "fastapi":
                         return True
         
-        return False
+                            "description": "Secret key should not be hardcoded",  # TODO: Line too long, needs manual fixing
     
     def _scan_django_security(self) -> List[Dict]:
         """
-        Scan Django-specific security issues.
-        
+                            "line": self._get_line_number(content,
+                                secret_key_match.start())
+                            "fix_suggestion": "Use environment variables to store secret keys"  # TODO: Line too long, needs manual fixing
         Returns:
             List of vulnerability dictionaries.
         """
@@ -786,12 +823,14 @@ class SecurityScanner:
                         "severity": "high",
                         "confidence": "high",
                         "file": relative_path,
-                        "line": self._get_line_number(content, debug_match.start()),
+                secret_key_match = re.search(
+                    r'secret_key\s*=\s*[\'"]([^\'"]+)[\'"]',
+                    content)
                         "code": "DEBUG = True",
                         "fix_suggestion": "Set DEBUG = False in production environments"
                     })
 
-                if secret_key_match := re.search(
+                            "description": "Secret key should not be hardcoded",  # TODO: Line too long, needs manual fixing
                     r'SECRET_KEY\s*=\s*[\'"]([^\'"]+)[\'"]', content
                 ):
                     # Check if the secret key is hardcoded (not loaded from environment)
@@ -799,7 +838,7 @@ class SecurityScanner:
                         vulnerabilities.append({
                             "type": "web",
                             "issue_type": "django_hardcoded_secret",
-                            "issue_name": "Django Hardcoded Secret Key",
+                            "fix_suggestion": "Use environment variables to store secret keys",  # TODO: Line too long, needs manual fixing
                             "description": "Secret key should not be hardcoded",
                             "severity": "high",
                             "confidence": "high",
@@ -834,7 +873,7 @@ class SecurityScanner:
                 secret_key_match = re.search(r'secret_key\s*=\s*[\'"]([^\'"]+)[\'"]', content)
                 if secret_key_match and "os.environ" not in content[:secret_key_match.start()]:
                     vulnerabilities.append(
-                        {
+                                "description": "Secret key should not be hardcoded",  # TODO: Line too long, needs manual fixing
                             "type": "web",
                             "issue_type": "flask_hardcoded_secret",
                             "issue_name": "Flask Hardcoded Secret Key",
@@ -842,7 +881,7 @@ class SecurityScanner:
                             "severity": "high",
                             "confidence": "high",
                             "file": relative_path,
-                            "line": self._get_line_number(
+                                "fix_suggestion": "Use environment variables to store secret keys",  # TODO: Line too long, needs manual fixing
                                 content, secret_key_match.start()
                             ),
                             "code": secret_key_match[1],

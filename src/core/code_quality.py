@@ -6,17 +6,15 @@ integrating with popular linting and formatting tools to maintain
 consistent code style and quality.
 """
 
-
-import contextlib
-import os
-import subprocess
 import logging
-import tempfile
-import json
 from pathlib import Path
-from typing import Dict, List, Optional, Union, Any, Tuple
-
+import subprocess
 import toml
+import json
+import contextlib
+
+from typing import Dict, List, Optional, Union
+
 
 # Configuration file constants
 BLACK_CONFIG_FILENAME = "black.toml"
@@ -513,22 +511,21 @@ class CodeQualityEnforcer:
         # Determine overall status
         result = {
             "high_complexity": high_complexity[:10],  # Limit to 10 for readability
-            "low_maintainability": low_maintainability[:10],  # Limit to 10 for readability
+            "low_maintainability": low_maintainability[
+                :10
+            ],  # Limit to 10 for readability
             "total_high_complexity": len(high_complexity),
             "total_low_maintainability": len(low_maintainability),
         }
-        
+
         if high_complexity or low_maintainability:
-            result.update({
+            result |= {
                 "status": "fail",
-                "message": f"Found {len(high_complexity)} high complexity functions and {len(low_maintainability)} low maintainability files"
-            })
+                "message": f"Found {len(high_complexity)} high complexity functions and {len(low_maintainability)} low maintainability files",
+            }
         else:
-            result.update({
-                "status": "pass",
-                "message": "No complexity issues found"
-            })
-            
+            result |= {"status": "pass", "message": "No complexity issues found"}
+
         return result
 
     def _is_tool_available(self, tool_name: str) -> bool:
@@ -562,7 +559,7 @@ class CodeQualityEnforcer:
     def _ensure_config_file(self, config_filename: str) -> Optional[Path]:
         """
         Ensure a configuration file exists for the tool.
-
+        This will check for a configuration file in the project directory first,  # TODO: Line too long, needs manual fixing
         This will check for a configuration file in the project directory first,
         then fall back to the PS2 default configuration.
 
@@ -572,43 +569,36 @@ class CodeQualityEnforcer:
         Returns:
             Path to the configuration file, or None if not available.
         """
-        # Check for config in project directory
-        config_path = self._find_config_in_project(config_filename)
-        if config_path:
+        if config_path := self._find_config_in_project(config_filename):
             return config_path
-            
-        # Check for config in common locations
-        config_path = self._find_config_in_common_locations(config_filename)
-        if config_path:
+
+        if config_path := self._find_config_in_common_locations(config_filename):
             return config_path
-            
-        # Fall back to PS2 default config
-        config_path = self._find_default_config(config_filename)
-        if config_path:
+
+        if config_path := self._find_default_config(config_filename):
             return config_path
-            
+
         self.logger.warning(f"No configuration found for {config_filename}")
         return None
-        
+
     def _find_config_in_project(self, config_filename: str) -> Optional[Path]:
         """Find configuration file in the project directory."""
         project_config = self.project_path / config_filename
-        if project_config.exists():
-            return project_config
-        return None
-        
+        return project_config if project_config.exists() else None
+
     def _find_config_in_common_locations(self, config_filename: str) -> Optional[Path]:
         """Find configuration file in common locations."""
         common_locations = [
+            self.project_path
+            / "pyproject.toml",  # Black and other tools use pyproject.toml
             self.project_path / ".config" / config_filename,
-            self.project_path / "pyproject.toml",  # Black and other tools use pyproject.toml
             self.project_path / "setup.cfg",  # Some tools use setup.cfg
         ]
 
         for location in common_locations:
             if not location.exists():
                 continue
-                
+
             # For non-pyproject.toml files or configs not requiring special handling
             if location.name != "pyproject.toml" or config_filename not in [
                 BLACK_CONFIG_FILENAME,
@@ -616,36 +606,35 @@ class CodeQualityEnforcer:
             ]:
                 return location
 
-            # Special handling for pyproject.toml
-            config_path = self._check_pyproject_toml(location, config_filename)
-            if config_path:
+            if config_path := self._check_pyproject_toml(location, config_filename):
                 return config_path
-                
-        return None
-        
-    def _check_pyproject_toml(self, pyproject_path: Path, config_filename: str) -> Optional[Path]:
+
+    def _check_pyproject_toml(
+        self, pyproject_path: Path, config_filename: str
+    ) -> Optional[Path]:
         """Check if pyproject.toml contains configuration for the specified tool."""
-        try:
+        with contextlib.suppress(toml.TomlDecodeError):
             with open(pyproject_path, "r") as f:
                 config = toml.load(f)
-                
+
             # Check if the tool configuration exists in pyproject.toml
             if "tool" in config:
-                if config_filename == BLACK_CONFIG_FILENAME and "black" in config["tool"]:
+                if (
+                    config_filename == BLACK_CONFIG_FILENAME
+                    and "black" in config["tool"]
+                ):
                     return pyproject_path
-                if config_filename == ISORT_CONFIG_FILENAME and "isort" in config["tool"]:
+                if (
+                    config_filename == ISORT_CONFIG_FILENAME
+                    and "isort" in config["tool"]
+                ):
                     return pyproject_path
-        except toml.TomlDecodeError:
-            pass
-            
         return None
-        
+
     def _find_default_config(self, config_filename: str) -> Optional[Path]:
         """Find default configuration file in PS2 config directory."""
         ps2_config = self.config_dir / config_filename
-        if ps2_config.exists():
-            return ps2_config
-        return None
+        return ps2_config if ps2_config.exists() else None
 
     def _run_command(self, cmd: List[str]) -> Dict:
         """

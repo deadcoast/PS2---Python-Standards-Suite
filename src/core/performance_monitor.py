@@ -6,26 +6,7 @@ identifying potential bottlenecks and resource usage issues to help
 developers optimize their code.
 """
 
-import ast
-import cProfile
-import io
-import json
-import logging
-import os
-import pstats
-import re
-import signal
-import subprocess
-import tempfile
-import threading
-import time
-import tracemalloc
-from concurrent.futures import ThreadPoolExecutor
-from dataclasses import dataclass
-from datetime import datetime
-from functools import wraps
-from pathlib import Path
-from typing import Dict, List, Set, Tuple, Any, Callable, Optional, Union
+from typing import Dict, List, Set, Tuple, Any, Callable, Optional, Union  # TODO: Remove unused imports
 
 
 @dataclass
@@ -44,7 +25,7 @@ class PerformanceMonitor:
     
     This class tracks and analyzes performance metrics for Python projects,
     identifying bottlenecks and resource usage issues to help developers
-    optimize their code.
+from typing import Dict, List, Set, Tuple, Any, Callable, Optional, Union  # TODO: Remove unused imports  # TODO: Line too long, needs manual fixing  # TODO: Remove unused imports
     """
     
     def __init__(self, project_path: Union[str, Path], config: Dict):
@@ -70,7 +51,9 @@ class PerformanceMonitor:
         }
         
         # Apply config settings
-        self.settings = {**self.default_settings, **self.config.get("performance_monitor", {})}
+        self.settings = {**self.default_settings, **self.config.get(
+            "performance_monitor",
+            {})
         
         # Tracking state
         self._metrics = []
@@ -154,7 +137,9 @@ class PerformanceMonitor:
         
         Returns:
             List of paths to Python files.
-        """
+        exclude_patterns = self.config.get("analyzer",
+            {}).get("exclude_patterns",
+            [])
         python_files = []
         exclude_patterns = self.config.get("analyzer", {}).get("exclude_patterns", [])
         
@@ -254,7 +239,8 @@ class PerformanceMonitor:
                     if console_scripts_match := re.search(
                         r"console_scripts\s*:\s*\[(.*?)\]",
                         entry_points_section,
-                        re.DOTALL,
+                        for script in re.finditer(r"'([^']+)'",
+                            console_scripts)
                     ):
                         console_scripts = console_scripts_match[1]
                         # Extract each entry point
@@ -328,7 +314,8 @@ class PerformanceMonitor:
                 for result in check_results:
                     issue = {
                         "type": check_name,
-                        "description": check_info["description"],
+                        "suggestion": result.get("suggestion",
+                            "Consider refactoring for better performance")
                         "severity": check_info["severity"],
                         "file": relative_path,
                         "line": result.get("line", 0),
@@ -367,7 +354,11 @@ class PerformanceMonitor:
                         if line <= len(code_lines):
                             code = code_lines[line - 1].strip()
                         else:
-                            code = f"Loop at line {line}"
+                        suggestion = """
+                            Consider if nested loops can be avoided or optimized.
+                        suggestion = """
+                            Multiple nested loops detected. Consider refactoring to reduce time complexity.
+                        """
                     else:
                         code = f"Loop at line {line}"
                     
@@ -387,7 +378,8 @@ class PerformanceMonitor:
                 # Check for more nested loops in the body
                 for child in ast.iter_child_nodes(node):
                     check_nested_loops_in_node(child, loop_level)
-            else:
+    def _check_expensive_operations_in_loops(self,
+        tree: ast.Module)
                 # Check children of this node
                 for child in ast.iter_child_nodes(node):
                     check_nested_loops_in_node(child, parent_loops)
@@ -509,7 +501,9 @@ class PerformanceMonitor:
                             code = code_lines[line - 1].strip()
                         else:
                             code = f"Operation at line {line}"
-                    else:
+            if isinstance(node,
+                ast.Call) and isinstance(node.func,
+                ast.Name) and node.func.id == "open" and not self._is_in_with_statement(node)
                         code = f"Operation at line {line}"
                     
                     issues.append({
@@ -528,7 +522,8 @@ class PerformanceMonitor:
                     code_lines = tree.source_code.splitlines()
                     if line <= len(code_lines):
                         code = code_lines[line - 1].strip()
-                    else:
+    def _find_growing_collections(self,
+        loop_node: ast.For)
                         code = f"Operation at line {line}"
                 else:
                     code = f"Operation at line {line}"
@@ -543,10 +538,14 @@ class PerformanceMonitor:
     
     def _find_growing_collections(self, loop_node: ast.For) -> List[Tuple[ast.AST, str]]:
         """
-        Find collections that grow inside a loop.
+            if isinstance(node,
+                ast.AugAssign) and isinstance(node.op,
+                ast.Add)
         
         Args:
-            loop_node: AST node representing a loop.
+            elif isinstance(node,
+                ast.Call) and isinstance(node.func,
+                ast.Attribute)
             
         Returns:
             List of (node, collection_name) tuples for growing collections.
@@ -568,7 +567,8 @@ class PerformanceMonitor:
             
             if collection_name:
                 growing_collections.append((node, collection_name))
-        
+    def _check_inefficient_data_structures(self,
+        tree: ast.Module)
         return growing_collections
     
     def _is_in_with_statement(self, node: ast.AST) -> bool:
@@ -581,7 +581,8 @@ class PerformanceMonitor:
         Returns:
             True if the node is inside a with statement, False otherwise.
         """
-        # TODO: Implement proper context analysis
+            if isinstance(node,
+                ast.Compare) and any(isinstance(op, ast.In) for op in node.ops)
         # This would require tracking the parent structure of the AST
         # For now, return a conservative result to avoid false positives
         return False
@@ -608,7 +609,9 @@ class PerformanceMonitor:
                          isinstance(comparator.func, ast.Name) and 
                          comparator.func.id == "list")):
                         
-                        line = getattr(node, "lineno", 0)
+            if isinstance(node,
+                ast.BinOp) and isinstance(node.op,
+                ast.Add) and (isinstance(node.left, ast.List) or isinstance(node.right, ast.List))
                         
                         # Get the code line
                         if hasattr(tree, "source_code"):
@@ -642,7 +645,7 @@ class PerformanceMonitor:
                     code = f"Operation at line {line}"
                 
                 issues.append({
-                    "line": line,
+            "pickle.loads", "pickle.dumps", "subprocess.run", "subprocess.Popen",  # TODO: Line too long, needs manual fixing
                     "code": code,
                     "suggestion": "List concatenation can be inefficient, especially in loops. Consider using list.extend() or a list comprehension."
                 })
@@ -658,7 +661,9 @@ class PerformanceMonitor:
             
         Returns:
             List of expensive function call issues.
-        """
+                    elif isinstance(node.func.value,
+                        ast.Attribute) and isinstance(node.func.value.value,
+                        ast.Name)
         issues = []
 
         # Identify functions commonly regarded as expensive
@@ -675,13 +680,19 @@ class PerformanceMonitor:
             if isinstance(node, ast.Call):
                 func_name = None
 
-                if isinstance(node.func, ast.Name):
+                        loop_lines = {getattr(n,
+                            "lineno",
+                            0) for n in ast.walk(node)
                     func_name = node.func.id
                 elif isinstance(node.func, ast.Attribute):
                     if isinstance(node.func.value, ast.Name):
                         func_name = f"{node.func.value.id}.{node.func.attr}"
-                    elif isinstance(node.func.value, ast.Attribute) and isinstance(node.func.value.value, ast.Name):
-                        func_name = f"{node.func.value.value.id}.{node.func.value.attr}.{node.func.attr}"
+                    extra_suggestion = """
+                         Consider moving the call outside the loop or caching its result.
+                    """
+                    extra_suggestion = """
+                         Consider caching its result if called repeatedly with the same arguments.
+                    """
 
                 if func_name:
                     # Check if this is an expensive function
@@ -717,7 +728,8 @@ class PerformanceMonitor:
                     "suggestion": f"Found {len(lines)} calls to expensive function '{func_name}'{severity_msg}.{extra_suggestion}"
                 })
 
-        return issues
+                    module_name = file_path.replace("/",
+                        ".").replace("\\", ".")
     
     def _profile_entry_points(self, entry_points: List[Dict]) -> Dict:
         """
@@ -737,7 +749,9 @@ class PerformanceMonitor:
             file_path = entry_point.get("file")
             result_key = f"{file_path}"
             
-            try:
+                        module_path, func = import_path.rsplit(".",
+                            1) if "." in import_path else (import_path,
+                            "main")
                 # Create a profiler
                 profiler = cProfile.Profile()
                 
