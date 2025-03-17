@@ -20,8 +20,8 @@ Author: Space Muck Team
 import argparse
 import glob
 import os
-import sys
 import subprocess
+import sys
 from pathlib import Path
 
 try:

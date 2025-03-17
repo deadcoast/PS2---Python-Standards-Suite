@@ -6,7 +6,7 @@ to create, update, and query issues in Jira projects.
 """
 
 import re
-from typing import Dict, List, Any, Optional, Union
+from typing import Any, Dict, List, Optional, Union
 
 # Try to import Jira client
 try:

@@ -10,11 +10,11 @@ import ast
 import logging
 import os
 import re
-
-import networkx as nx
-from collections import defaultdict, Counter
+from collections import Counter, defaultdict
 from pathlib import Path
 from typing import Dict, List, Tuple, Union
+
+import networkx as nx
 
 
 class CodeAnalyzer:

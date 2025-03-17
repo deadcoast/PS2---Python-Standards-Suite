@@ -6,12 +6,14 @@ metrics throughout the PS2 system, enabling performance monitoring and
 resource usage tracking.
 """
 
-from typing import Dict, List, Any, Optional, Union, Tuple  # TODO: Remove unused imports
-
+from typing import (Any, Dict, List, Optional,  # TODO: Remove unused imports
+                    Tuple, Union)
 
 # Global metrics storage
 _metrics: Dict[str, List[Dict[str, Any]]] = {}
-from typing import Dict, List, Any, Optional, Union, Tuple  # TODO: Remove unused imports  # TODO: Line too long, needs manual fixing  # TODO: Remove unused imports
+from typing import (  # TODO: Remove unused imports  # TODO: Line too long, needs manual fixing  # TODO: Remove unused imports
+    Any, Dict, List, Optional, Tuple, Union)
+
 
 def track_metric(
     name: str,

@@ -4,21 +4,12 @@ Formatting Helper Module for PS2 CLI.
 This module provides helper functions for formatting output in the PS2 CLI.
 """
 
-from typing import Dict, Any, Optional, Union  # TODO: Remove unused imports
-from typing import (
-    Dict,
-    Any,
-    Optional,
-    Union,
-)  # TODO: Remove unused imports  # TODO: Remove unused imports
+from typing import (  # TODO: Remove unused imports; TODO: Remove unused imports  # TODO: Remove unused imports
+    Any, Dict, Optional, Union)
 
 try:
-    from colorama import Fore, Style, init  # TODO: Remove unused imports
-    from colorama import (
-        Fore,
-        Style,
-        init,
-    )  # TODO: Remove unused imports  # TODO: Remove unused imports
+    from colorama import (  # TODO: Remove unused imports; TODO: Remove unused imports  # TODO: Remove unused imports
+        Fore, Style, init)
 
     init()
     HAS_COLORAMA = True
@@ -74,22 +65,21 @@ def _format_simple(result: Dict[str, Any]) -> str:
 
     # Add other fields
     for key, value in result.items():
-        if key not in ["status", "message"]:
-            if isinstance(value, dict):
+        if isinstance(value, dict):
+            if key not in ["status", "message"]:
                 lines.append(f"\n{key}:")
-                for k, v in value.items():
-                    lines.append(f"  {k}: {v}")
-            elif isinstance(value, list):
+                lines.extend(f"  {k}: {v}" for k, v in value.items())
+        elif isinstance(value, list):
+            if key not in ["status", "message"]:
                 lines.append(f"\n{key}:")
                 for item in value:
                     if isinstance(item, dict):
-                        for k, v in item.items():
-                            lines.append(f"  {k}: {v}")
+                        lines.extend(f"  {k}: {v}" for k, v in item.items())
                         lines.append("")
                     else:
                         lines.append(f"  {item}")
-            else:
-                lines.append(f"\n{key}: {value}")
+        elif key not in ["status", "message"]:
+            lines.append(f"\n{key}: {value}")
 
     return "\n".join(lines)
 
@@ -113,16 +103,14 @@ def _format_pretty(result: Dict[str, Any]) -> str:
     # Add status with color
     if "status" in result:
         status = result["status"].upper()
-        if status == "PASS":
-            status_str = f"{Fore.GREEN}{status}{Style.RESET_ALL}"
-        elif status == "FAIL":
+        if status == "FAIL":
             status_str = f"{Fore.RED}{status}{Style.RESET_ALL}"
-        elif status == "FIXED":
-            status_str = f"{Fore.YELLOW}{status}{Style.RESET_ALL}"
-        elif status == "WARNING":
+        elif status in ["FIXED", "WARNING"]:
             status_str = f"{Fore.YELLOW}{status}{Style.RESET_ALL}"
         elif status == "INFO":
             status_str = f"{Fore.BLUE}{status}{Style.RESET_ALL}"
+        elif status == "PASS":
+            status_str = f"{Fore.GREEN}{status}{Style.RESET_ALL}"
         else:
             status_str = f"{status}"
 
@@ -134,39 +122,36 @@ def _format_pretty(result: Dict[str, Any]) -> str:
 
     # Add other fields with pretty formatting
     for key, value in result.items():
-        if key not in ["status", "message"]:
             # Format dictionary fields
-            if isinstance(value, dict):
+        if isinstance(value, dict):
+            if key not in ["status", "message"]:
                 lines.append(f"\n{Fore.CYAN}{key}:{Style.RESET_ALL}")
                 for k, v in value.items():
                     # Format nested dictionaries recursively
                     if isinstance(v, dict):
                         lines.append(f"  {Fore.CYAN}{k}:{Style.RESET_ALL}")
-                        for nk, nv in v.items():
-                            lines.append(f"    {nk}: {_format_value(nv)}")
+                        lines.extend(f"    {nk}: {_format_value(nv)}" for nk, nv in v.items())
                     else:
                         lines.append(f"  {k}: {_format_value(v)}")
 
-            # Format list fields
-            elif isinstance(value, list):
+        elif isinstance(value, list):
+            if key not in ["status", "message"]:
                 lines.append(f"\n{Fore.CYAN}{key}:{Style.RESET_ALL}")
                 if value:
                     for i, item in enumerate(value):
                         if isinstance(item, dict):
                             if i > 0:
                                 lines.append("")  # Add separator between items
-                            for k, v in item.items():
-                                lines.append(f"  {k}: {_format_value(v)}")
+                            lines.extend(f"  {k}: {_format_value(v)}" for k, v in item.items())
                         else:
                             lines.append(f"  {_format_value(item)}")
                 else:
                     lines.append("  (empty)")
 
-            # Format other types
-            else:
-                lines.append(
-                    f"\n{Fore.CYAN}{key}:{Style.RESET_ALL} {_format_value(value)}"
-                )
+        elif key not in ["status", "message"]:
+            lines.append(
+                f"\n{Fore.CYAN}{key}:{Style.RESET_ALL} {_format_value(value)}"
+            )
 
     return "\n".join(lines)
 

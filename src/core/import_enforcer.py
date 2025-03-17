@@ -6,9 +6,16 @@ preventing issues like circular imports and ensuring proper organization
 of imports according to project standards.
 """
 
+import ast
+import contextlib
+import logging
+import os
+import re
+from pathlib import Path
+from typing import Dict, List, Tuple, Union
 
-from typing import Dict, List, Set, Tuple, Any, Optional, Union  # TODO: Remove unused imports
-
+import isort
+import networkx as nx
 
 
 class ImportEnforcer:
@@ -137,8 +144,6 @@ from typing import Dict, List, Set, Tuple, Any, Optional, Union  # TODO: Remove 
             for file in files:
                 if file.endswith(".py"):
                     file_path = Path(root) / file
-                        re.match(pattern,
-                            str(file_path.relative_to(self.project_path)))
                     if not any(
                         re.match(pattern, str(file_path.relative_to(self.project_path)))
                         for pattern in exclude_patterns
@@ -575,9 +580,6 @@ from typing import Dict, List, Set, Tuple, Any, Optional, Union  # TODO: Remove 
             "xml",
             "zipfile",
         }
-    def _get_import_group(self,
-        node: Union[ast.Import,
-        ast.ImportFrom])
         return module_name in stdlib_modules
 
     def _get_import_group(self, node: Union[ast.Import, ast.ImportFrom]) -> str:
@@ -606,12 +608,7 @@ from typing import Dict, List, Set, Tuple, Any, Optional, Union  # TODO: Remove 
                 return "stdlib"
             elif self._is_internal_module(module_name):
                 return "local"
-    def _get_import_sort_key(self,
-        node: Union[ast.Import,
-        ast.ImportFrom])
-                return "third-party"
-
-        return "unknown"
+        return "third-party"
 
     def _get_import_sort_key(self, node: Union[ast.Import, ast.ImportFrom]) -> Tuple:
         """

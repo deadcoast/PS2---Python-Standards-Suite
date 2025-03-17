@@ -6,15 +6,8 @@ allowing PS2 to send notifications via email, Slack, and other
 communication platforms.
 """
 
-from typing import Dict, List, Any, Optional, Union  # TODO: Remove unused imports
-
-from typing import (
-    Dict,
-    List,
-    Any,
-    Optional,
-    Union,
-)  # TODO: Remove unused imports  # TODO: Line too long, needs manual fixing  # TODO: Remove unused imports
+from typing import (  # TODO: Remove unused imports; TODO: Remove unused imports  # TODO: Line too long, needs manual fixing  # TODO: Remove unused imports
+    Any, Dict, List, Optional, Union)
 
 _configured_services = {}
 

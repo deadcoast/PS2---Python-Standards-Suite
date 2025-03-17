@@ -6,7 +6,15 @@ helping to maintain DRY (Don't Repeat Yourself) principles and reduce
 maintenance burdens.
 """
 
-from typing import Dict, List, Set, Tuple, Any, Optional, Union  # TODO: Remove unused imports
+import ast
+import difflib
+import hashlib
+import logging
+import os
+import re
+from collections import defaultdict
+from pathlib import Path
+from typing import Dict, List, Optional, Union
 
 
 class DuplicationDetector:
@@ -14,7 +22,6 @@ class DuplicationDetector:
     Detector for code duplication in Python projects.
     
     This class identifies duplicated code blocks, functions, and patterns
-from typing import Dict, List, Set, Tuple, Any, Optional, Union  # TODO: Remove unused imports  # TODO: Line too long, needs manual fixing  # TODO: Remove unused imports
     and reduce maintenance burdens.
     """
     
@@ -46,15 +53,16 @@ from typing import Dict, List, Set, Tuple, Any, Optional, Union  # TODO: Remove 
         self.settings = {**self.default_settings, **self.config.get(
             "duplication_detector",
             {})
+        }
         
         # Cache for ASTs
         self._ast_cache = {}
     
-    def enable(self) -> None:
+    def enable(self):
         """Enable the duplication detector."""
         self.enabled = True
     
-    def disable(self) -> None:
+    def disable(self):
         """Disable the duplication detector."""
         self.enabled = False
     
@@ -90,10 +98,7 @@ from typing import Dict, List, Set, Tuple, Any, Optional, Union  # TODO: Remove 
         pattern_duplications = self._detect_pattern_duplications()
         
         # Fix duplications if requested
-            fixed_files = self._fix_duplications(exact_duplications,
-                function_duplications)
-        if fix and (exact_duplications or function_duplications):
-            fixed_files = self._fix_duplications(exact_duplications, function_duplications)
+        fixed_files = self._fix_duplications(exact_duplications, function_duplications)
         
         # Build result
         result = {
@@ -128,9 +133,7 @@ from typing import Dict, List, Set, Tuple, Any, Optional, Union  # TODO: Remove 
         Collect all Python files in the project.
         
         Returns:
-        exclude_patterns = self.config.get("analyzer",
-            {}).get("exclude_patterns",
-            [])
+            List of paths to Python files.
         """
         python_files = []
         exclude_patterns = self.config.get("analyzer", {}).get("exclude_patterns", [])
@@ -164,19 +167,17 @@ from typing import Dict, List, Set, Tuple, Any, Optional, Union  # TODO: Remove 
                 with open(file_path, "r", encoding="utf-8") as f:
                     source = f.read()
                 tree = ast.parse(source, filename=str(file_path))
-                
+            
                 # Add the source file to the AST for reference
                 tree.source_file = file_path
-                
+            
                 # Add source code for potential fixes
                 tree.source_code = source
-                
+            
                 # Add line mapping for reference
                 tree.line_mapping = {}
                 for i, line in enumerate(source.splitlines()):
                     tree.line_mapping[i+1] = line
-    def _detect_exact_duplications(self,
-        python_files: List[Path])
                 self._ast_cache[file_path] = tree
             except (SyntaxError, UnicodeDecodeError) as e:
                 self.logger.warning(f"Failed to parse {file_path}: {e}")
@@ -258,8 +259,6 @@ from typing import Dict, List, Set, Tuple, Any, Optional, Union  # TODO: Remove 
             for j in range(i + 1, len(functions)):
                 function1 = functions[i]
                 function2 = functions[j]
-                similarity = self._compute_function_similarity(function1,
-                    function2)
                 # Skip if functions are from the same class
                 if function1["class_name"] and function1["class_name"] == function2["class_name"] and function1["file"] == function2["file"]:
                     continue
@@ -324,22 +323,20 @@ from typing import Dict, List, Set, Tuple, Any, Optional, Union  # TODO: Remove 
                 "instances": [
                     {
                         "file": str(seq["file"].relative_to(self.project_path)),
-                "suggested_action": "Extract common pattern into a utility function or class",  # TODO: Line too long, needs manual fixing
+                        "suggested_action": "Extract common pattern into a utility function or class",
                         "end_line": seq["end_line"],
                         "context": seq["context"],
                     }
                     for seq in group
                 ],
-    def _fix_duplications(self,
-        exact_duplications: List[Dict],
-        function_duplications: List[Dict])
-                "suggested_action": "Extract common pattern into a utility function or class",
             }
             for group_id, group in enumerate(pattern_groups)
             if len(group) > 1
         ]
     
-    def _fix_duplications(self, exact_duplications: List[Dict], function_duplications: List[Dict]) -> List[str]:
+    def _fix_duplications(self,
+        exact_duplications: List[Dict],
+        function_duplications: List[Dict]) -> List[str]:
         """
         Fix duplication issues where possible.
         
@@ -432,9 +429,7 @@ from typing import Dict, List, Set, Tuple, Any, Optional, Union  # TODO: Remove 
                 # Skip if block is too small
                 if len(block_content) < self.settings["min_tokens"]:
                     continue
-                context = self._get_context_for_lines(file_path,
-                    start_line,
-                    end_line)
+                # Context will be retrieved when needed
                 # Process the block content based on settings
                 processed_content = self._process_block_content(block_content)
                 
@@ -465,37 +460,30 @@ from typing import Dict, List, Set, Tuple, Any, Optional, Union  # TODO: Remove 
         Returns:
             Processed code block content.
         """
-            content = re.sub(r"^\s*from\s+.*?import\s+.*$",
-            content = re.sub(r"^\s*import\s+.*$",
-                "",
-                content,
-                flags=re.MULTILINE)
-                content,
-                flags=re.MULTILINE)
+        content = re.sub(r"^\s*from\s+.*?import\s+.*$",
+            "",
+            content,
+            flags=re.MULTILINE)
+        content = re.sub(r"^\s*import\s+.*$",
+            "",
+            content,
+            flags=re.MULTILINE)
         if self.settings["ignore_comments"]:
             content = re.sub(r"#.*$", "", content, flags=re.MULTILINE)
         
         # Remove docstrings if configured
         if self.settings["ignore_docstrings"]:
-                "and", "as", "assert", "break", "class", "continue", "def", "del",  # TODO: Line too long, needs manual fixing
-                "elif", "else", "except", "False", "finally", "for", "from", "global",  # TODO: Line too long, needs manual fixing
-                "if", "import", "in", "is", "lambda", "None", "nonlocal", "not", "or",  # TODO: Line too long, needs manual fixing
-                "pass", "raise", "return", "True", "try", "while", "with", "yield"  # TODO: Line too long, needs manual fixing
-        if self.settings["ignore_imports"]:
-            content = re.sub(r"^\s*from\s+.*?import\s+.*$", "", content, flags=re.MULTILINE)
-            content = re.sub(r"^\s*import\s+.*$", "", content, flags=re.MULTILINE)
+            content = content.replace(""",'''", """)
         
         # Normalize variable names if configured
         if self.settings["ignore_variable_names"]:
             # This is a simplified approach - a real implementation would use the AST
             # to identify variables and replace them with placeholders
-            var_pattern = r"\b[a-zA-Z_][a-zA-Z0-9_]*\b"
+            var_pattern = r"\b[a-zA-Z_]\w*\b"
             vars_found = set(re.findall(var_pattern, content))
             
             # Skip keywords
-                content = re.sub(r"\b" + re.escape(var) + r"\b",
-                    placeholder,
-                    content)
+            keywords = {
                 "and", "as", "assert", "break", "class", "continue", "def", "del",
                 "elif", "else", "except", "False", "finally", "for", "from", "global",
                 "if", "import", "in", "is", "lambda", "None", "nonlocal", "not", "or",
@@ -589,9 +577,6 @@ from typing import Dict, List, Set, Tuple, Any, Optional, Union  # TODO: Remove 
                 "description": "Create a utility function in a common module"
             }
         elif len(contexts) > 1 and all("class:" in ctx for ctx in contexts):
-    def _extract_functions(self,
-        file_path: Path,
-        tree: ast.Module)
             # Suggest extracting to a base class or utility method
             classes = [ctx.split("class:")[1].strip() for ctx in contexts if "class:" in ctx]
             return {
@@ -624,74 +609,91 @@ from typing import Dict, List, Set, Tuple, Any, Optional, Union  # TODO: Remove 
         # Get the source code
         if not hasattr(tree, "source_code"):
             return []
-        source_code = tree.source_code
 
 
 
-        class FunctionVisitor(ast.NodeVisitor):
-            def __init__(self):
-                self.current_class = None
-                self.functions = []
+class FunctionVisitor(ast.NodeVisitor):
+    def __init__(self, source_code: str):
+        self.current_class = None
+        self.functions = []
+        self.source_code = source_code
+        self.logger = logging.getLogger("ps2.duplication_detector.FunctionVisitor")
+        self.logger.setLevel(logging.DEBUG)
+        self.logger.addHandler(logging.StreamHandler())
+        self.logger.propagate = False
 
-            def visit_ClassDef(self, node):
-                old_class = self.current_class
-                self.current_class = node.name
-                self.generic_visit(node)
-                self.current_class = old_class
+    def visit_ClassDef(self, node):
+        old_class = self.current_class
+        self.current_class = node.name
+        self.generic_visit(node)
+        self.current_class = old_class
 
-            def visit_FunctionDef(self, node):
-                # Skip very small functions
-                if len(node.body) < 3:
-                    return
+    def visit_FunctionDef(self, node):
+        # Skip very small functions
+        if len(node.body) < 3:
+            return
 
-                # Get function source code
-                if hasattr(node, "lineno") and hasattr(node, "end_lineno"):
-                    start_line = node.lineno
-                    end_line = node.end_lineno
+        # Get function source code
+        if hasattr(node, "lineno") and hasattr(node, "end_lineno"):
+            start_line = node.lineno
+            end_line = node.end_lineno
 
-                    args = [arg.arg for arg in node.args.args]
-                    # Extract function content
-                    func_lines = source_code.splitlines()[start_line-1:end_line]
-                    func_content = "\n".join(func_lines)
+            # Extract function content and store line information only
+            # We don't need to process the content here since we're only collecting metadata
+            # Process function content and store it in the function data
+            self.functions.append({
+                "name": node.name,
+                "class_name": self.current_class,
+                "file": "<unknown>",  # File path will be set by the caller
+                "start_line": start_line,
+                "end_line": end_line,
+            })
 
-                    # Process function content based on settings
-                    processed_content = self._process_function_content(func_content)
-                return DuplicationDetector._process_block_content(self,
-                    content)
-                    self.functions.append({
-                        "name": node.name,
-                        "class_name": self.current_class,
-                        "file": file_path,
-                        "start_line": start_line,
-                        "end_line": end_line,
-    def _compute_function_similarity(self,
-        function1: Dict,
-        function2: Dict)
-                        "content": processed_content,
-                        "original_content": func_content
-                    })
+        self.generic_visit(node)
 
-                self.generic_visit(node)
-
-            def _process_function_content(self, content):
-                # Remove function definition line
-                content_lines = content.splitlines()
-        matcher = difflib.SequenceMatcher(None,
-            function1["content"],
-            function2["content"])
-                    content = "\n".join(content_lines[1:])
-        arg_similarity = self._compute_argument_similarity(function1["args"],
-            function2["args"])
-                # Process the content based on settings
-                return DuplicationDetector._process_block_content(self, content)
+    def _process_function_content(self, content):
+        # Remove function definition line
+        content_lines = content.splitlines()
+        content = "\n".join(content_lines[1:])
+        # Process the content based on settings
+        return self._process_block_content(content)
+        
+    def _process_block_content(self, content: str) -> str:
+        """Process block content to normalize it for comparison.
+        
+        Args:
+            content: Raw content of the code block.
+            
+        Returns:
+            Processed content with normalized whitespace and comments removed.
+        """
+        # Remove comments
+        content = re.sub(r'#.*$', '', content, flags=re.MULTILINE)
+        
+        # Normalize whitespace
+        content = re.sub(r'\s+', ' ', content)
+        
+        # Remove leading/trailing whitespace
+        content = content.strip()
+        
+        return content
 
     def _compute_argument_similarity(self,
         args1: List[str],
-        args2: List[str])
-        visitor = FunctionVisitor()
-        visitor.visit(tree)
-
-        return visitor.functions
+        args2: List[str]) -> float:
+        """
+        Compute similarity between two sets of arguments.
+        
+        Args:
+            args1: First set of arguments.
+            args2: Second set of arguments.
+            
+        Returns:
+            Similarity score (0-1).
+        """
+        # Use difflib's SequenceMatcher for similarity
+        matcher = difflib.SequenceMatcher(None, args1, args2)
+        return matcher.ratio()
     
     def _compute_function_similarity(self, function1: Dict, function2: Dict) -> float:
         """
@@ -724,14 +726,50 @@ from typing import Dict, List, Set, Tuple, Any, Optional, Union  # TODO: Remove 
             
         Returns:
             Similarity score (0-1).
-    def _suggest_action_for_function_duplication(self,
-        function1: Dict,
-        function2: Dict)
+        """
         if not args1 and not args2:
             return 1.0
         
         if not args1 or not args2:
             return 0.0
+        
+        # Filter out 'self' from arguments
+        args1_filtered = [arg for arg in args1 if arg != "self"]
+        args2_filtered = [arg for arg in args2 if arg != "self"]
+        
+        if not args1_filtered and not args2_filtered:
+            return 1.0  # Perfect similarity when both have no arguments
+        
+        if not args1_filtered or not args2_filtered:
+            return 0.0  # No similarity when one has arguments and the other doesn't
+        
+        # Compute Jaccard similarity: |A ∩ B| / |A ∪ B|
+        union_size = len(set(args1_filtered) | set(args2_filtered))
+        common_size = len(set(args1_filtered) & set(args2_filtered))
+        
+        return common_size / union_size if union_size > 0 else 1.0
+    
+    def _suggest_action_for_function_duplication(self,
+        function1: Dict,
+        function2: Dict) -> Dict:
+        """
+        Suggest an action to fix a function duplication.
+        
+        Args:
+            function1: First function information.
+            function2: Second function information.
+            
+        Returns:
+            Dictionary with suggested action.
+        """
+        args1 = function1["args"]
+        args2 = function2["args"]
+        
+        if not args1 and not args2:
+            return {"type": "extract_function", "target_name": self._merge_function_names(function1["name"], function2["name"])}
+        
+        if not args1 or not args2:
+            return {"type": "extract_function", "target_name": self._merge_function_names(function1["name"], function2["name"])}
         
         # Count common arguments (ignore self in class methods)
         common_args = set(args1) & set(args2)
@@ -740,15 +778,13 @@ from typing import Dict, List, Set, Tuple, Any, Optional, Union  # TODO: Remove 
             args1_filtered = [arg for arg in args1 if arg != "self"]
             args2_filtered = [arg for arg in args2 if arg != "self"]
         else:
-                "target_name": self._merge_function_names(function1["name"],
-                    function2["name"])
             args2_filtered = args2
         
         if not args1_filtered and not args2_filtered:
-            return 1.0
+            return {"type": "extract_function", "target_name": self._merge_function_names(function1["name"], function2["name"])}
         
         if not args1_filtered or not args2_filtered:
-            return 0.0
+            return {"type": "extract_function", "target_name": self._merge_function_names(function1["name"], function2["name"])}
         
         # Compute Jaccard similarity: |A ∩ B| / |A ∪ B|
         union_size = len(set(args1_filtered) | set(args2_filtered))
@@ -756,9 +792,9 @@ from typing import Dict, List, Set, Tuple, Any, Optional, Union  # TODO: Remove 
         
         return common_size / union_size
     
-                "target_function": self._merge_function_names(
-                    function1["name"],
-                    function2["name"])
+    def _suggest_action_for_function_duplication(self,
+        function1: Dict,
+        function2: Dict) -> Dict:
         """
         Suggest an action to fix function duplication.
         
@@ -782,9 +818,6 @@ from typing import Dict, List, Set, Tuple, Any, Optional, Union  # TODO: Remove 
             return {
                 "type": "extract_base_class",
                 "target_file": str(function1["file"]),
-    def _extract_code_sequences(self,
-        file_path: Path,
-        tree: ast.Module)
                 "description": f"Extract a base class with common functionality for {function1['class_name']} and {function2['class_name']}"
             }
         else:
@@ -816,21 +849,15 @@ from typing import Dict, List, Set, Tuple, Any, Optional, Union  # TODO: Remove 
         if len(common_prefix) >= 3:
             return f"{common_prefix}Common"
         elif len(common_suffix) >= 3:
-                self._extracted_from_visit_ClassDef_23('function:',
-                    node,
-            def _extract_sequence_from_nodes(self,
-                nodes: List[ast.stmt],
-                    if isinstance(node,
-                        (ast.Expr, ast.FunctionDef, ast.ClassDef))
+            return f"{common_suffix}Common"
         else:
             return f"common_{name1.lower()}_operation"
     
-    def _extract_code_sequences(self, file_path: Path, tree: ast.Module) -> List[Dict]:
+    def _extract_code_sequences(self, tree: ast.Module) -> List[Dict]:
         """
         Extract code sequences for pattern detection.
         
         Args:
-            file_path: Path to the Python file.
             tree: AST of the module.
             
         Returns:
@@ -860,26 +887,133 @@ from typing import Dict, List, Set, Tuple, Any, Optional, Union  # TODO: Remove 
 
             def visit_FunctionDef(self, node):
                 self._extracted_from_visit_ClassDef_23('function:', node, "function_body")
+                
+            def _get_node_content(self, node: ast.stmt) -> str:
+                """Get the source code content of an AST node."""
+                return self._extract_source_from_node(node) or ast.dump(node)
+                
+            def _extract_source_from_node(self, node: ast.stmt) -> Optional[str]:
+                """Extract source code from node if line numbers are available."""
+                if not (hasattr(node, 'lineno') and hasattr(node, 'end_lineno')):
+                    return None
+                    
+                # Get line numbers
+                start_line = getattr(node, 'lineno', 0)
+                end_line = getattr(node, 'end_lineno', 0)
+                
+                # Convert to source code if possible
+                if hasattr(self, 'source_lines') and self.source_lines:
+                    return '\n'.join(self.source_lines[start_line-1:end_line])
+                    
+                return None
 
-            def _extract_sequence_from_nodes(self, nodes: List[ast.stmt], context: str):
+            def _should_skip_node(self, node: ast.stmt) -> bool:
+                """Determine if a node should be skipped during sequence extraction."""
+                return isinstance(node, (ast.Expr, ast.FunctionDef, ast.ClassDef))
+                
+            def _create_sequence_from_node(self, node: ast.stmt, context: str) -> Dict:
+                """Create a sequence dictionary from an AST node."""
+                return {
+                    "context": self.current_context,
+                    "type": context,
+                    "start_line": node.lineno,
+                    "end_line": node.end_lineno,
+                    "content": self._get_node_content(node)
+                }
+                
+            def _process_node_body(self, node: ast.stmt, context: str, depth: int):
+                """Process the body of a node if it exists and is a list."""
+                if hasattr(node, 'body') and isinstance(node.body, list):
+                    # Check child nodes with increased depth
+                    self._extract_sequence_from_nodes(node.body, context, depth + 1)
+            
+            def _extract_sequence_from_nodes(self, nodes: List[ast.stmt], context: str, depth: int = 0):
+                """Extract sequences from a list of AST nodes."""
+                # Add a maximum recursion depth to prevent infinite recursion
+                if depth > 10:  # Limit recursion to a reasonable depth
+                    return
+                
+                self._process_nodes_at_current_depth(nodes, context, depth)
+                
+            def _process_nodes_at_current_depth(self, nodes: List[ast.stmt], context: str, depth: int):
+                """Process nodes at the current depth level."""
                 for node in nodes:
-                    if isinstance(node, (ast.Expr, ast.FunctionDef, ast.ClassDef)):
-                        continue
+                    self._process_single_node(node, context, depth)
+                    
+            def _process_single_node(self, node: ast.stmt, context: str, depth: int):
+                """Process a single AST node."""
+                if self._should_skip_node(node):
+                    return
+                    
+                sequence = self._create_sequence_from_node(node, context)
+                sequences.append(sequence)
+                
+                # Process the node's body recursively
+                self._process_node_body(node, context, depth)
 
-                    sequence = {
-                        "context": self.current_context,
-                        "type": context,
-                        "start_line": node.lineno,
-                        "end_line": node.end_lineno,
-                        "content": self._get_node_content(node)
-                    }
-                    sequences.append(sequence)
+        # Create and use the visitor
+        visitor = SequenceVisitor()
+        visitor.visit(tree)
+        
+        return sequences
 
-                # Check function body for patterns
-                self._extract_sequence_from_nodes(node.body, "function_body")
-
-                visitor = SequenceVisitor()
-                visitor.visit(tree)
-                return sequences
-
-
+    def _get_context_for_lines(self, file_path: Path, start_line: int, end_line: int) -> str:
+        """
+        Determine the context (class or function) for a given line range.
+        
+        Args:
+            file_path: Path to the file.
+            start_line: Start line number.
+            end_line: End line number.
+            
+        Returns:
+            Context string (e.g., 'class:MyClass' or 'function:my_function').
+        """
+        # Default context if we can't determine a more specific one
+        context = "global"
+        
+        # Check if the file is in the AST cache
+        if file_path in self._ast_cache:
+            tree = self._ast_cache[file_path]
+            
+            # Find the closest class or function definition
+            for node in ast.walk(tree):
+                if isinstance(node, (ast.ClassDef, ast.FunctionDef)):
+                    node_start = getattr(node, "lineno", 0)
+                    node_end = getattr(node, "end_lineno", 0)
+                    
+                    # Check if our lines are within this node
+                    if node_start <= start_line and end_line <= node_end:
+                        if isinstance(node, ast.ClassDef):
+                            context = f"class:{node.name}"
+                        else:  # FunctionDef
+                            context = f"function:{node.name}"
+                        break
+        
+        return context
+    
+    def _get_node_content(self, node: ast.stmt) -> str:
+        """
+        Get the content of a node.
+        
+        Args:
+            node: AST node.
+            
+        Returns:
+            Content of the node.
+        """
+        if hasattr(node, "lineno") and hasattr(node, "end_lineno"):
+            start_line = node.lineno
+            end_line = node.end_lineno
+            return self._get_file_content()[start_line-1:end_line]
+        return ""
+    
+    def _get_file_content(self) -> str:
+        """
+        Get the content of the file.
+        
+        Returns:
+            Content of the file.
+        """
+        with open(self.file_path, "r") as f:
+            return f.read()

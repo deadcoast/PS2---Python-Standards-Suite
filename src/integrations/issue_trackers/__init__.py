@@ -8,7 +8,7 @@ Jira, and others.
 
 import importlib
 import logging
-from typing import Dict, List, Any, Optional, Union
+from typing import Any, Dict, List, Optional, Union
 
 _configured_trackers = {}
 

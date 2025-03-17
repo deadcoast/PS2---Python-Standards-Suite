@@ -4,11 +4,11 @@ Validation Helper Module for PS2 CLI.
 This module provides helper functions for validating user input in the PS2 CLI.
 """
 
-from typing import Optional, List, Tuple, Any  # TODO: Remove unused imports
 
+from typing import (  # TODO: Remove unused imports; TODO: Remove unused imports  # TODO: Remove unused imports
+    Any, List, Optional, Tuple)
 
-from typing import Optional, List, Tuple, Any  # TODO: Remove unused imports  # TODO: Remove unused imports
-    """
+"""
     Validate a project name.
 
     Args:
@@ -18,52 +18,46 @@ from typing import Optional, List, Tuple, Any  # TODO: Remove unused imports  # 
         Tuple of (is_valid, message).
     """
     # Check if name is valid Python package name
-    if not re.match(r"^[a-zA-Z][a-zA-Z0-9_]*$", name):
-        return False, "Project name must be a valid Python package name"
-
-    # Check if name is not a Python reserved word
-    python_keywords = {
-        "False",
-        "None",
-        "True",
-        "and",
-        "as",
-        "assert",
-        "async",
-        "await",
-        "break",
-        "class",
-        "continue",
-        "def",
-        "del",
-        "elif",
-        "else",
-        "except",
-        "finally",
-        "for",
-        "from",
-        "global",
-        "if",
-        "import",
-        "in",
-        "is",
-        "lambda",
-        "nonlocal",
-        "not",
-        "or",
-        "pass",
-        "raise",
-        "return",
-        "try",
-        "while",
-        "with",
-        "yield",
-    }
-
-    if name in python_keywords:
-        return False, f"'{name}' is a Python reserved keyword"
-
-    return True, "Project name is valid"
+if not re.match(r"^[a-zA-Z][a-zA-Z0-9_]*$", name):
+    pass
+# Check if name is not a Python reserved word
+python_keywords = {
+    "False",
+    "None",
+    "True",
+    "and",
+    "as",
+    "assert",
+    "async",
+    "await",
+    "break",
+    "class",
+    "continue",
+    "def",
+    "del",
+    "elif",
+    "else",
+    "except",
+    "finally",
+    "for",
+    "from",
+    "global",
+    "if",
+    "import",
+    "in",
+    "is",
+    "lambda",
+    "nonlocal",
+    "not",
+    "or",
+    "pass",
+    "raise",
+    "return",
+    "try",
+    "while",
+    "with",
+    "yield",
+}
 
 
 def validate_project_path(path: str) -> Tuple[bool, str]:
@@ -188,7 +182,7 @@ def validate_output_file(file_path: str, format_type: str) -> Tuple[bool, str]:
 
     # Check file extension
     extension = path_obj.suffix.lower()[1:]  # Remove the dot
-    if format_type.lower() != extension and format_type.lower() != "any":
+    if format_type.lower() not in [extension, "any"]:
         return (
             False,
             f"File extension '{extension}' does not match expected format '{format_type}'",

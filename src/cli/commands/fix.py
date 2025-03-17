@@ -5,11 +5,14 @@ This module provides the 'fix' command for the PS2 CLI, allowing users
 to automatically fix code issues from the command line.
 """
 
-from typing import Dict, Any, Optional  # TODO: Remove unused imports
+import argparse
+import sys
+import traceback
+from typing import Any
 
 from ps2.cli.helpers.formatting import format_result, output_formats
 
-from typing import Dict, Any, Optional  # TODO: Remove unused imports  # TODO: Remove unused imports
+
 class FixCommand:
     """
     Command class for fixing code issues.
@@ -46,14 +49,12 @@ class FixCommand:
             "--imports", "-i", action="store_true", help="Fix import issues"
         )
         parser.add_argument(
-            "--conflicts", "-c", action = """
-                store_true", help="Fix naming conflicts
+            "--conflicts", "-c", action = "store_true", help="Fix naming conflicts"
+        )
         parser.add_argument("--all",
             "-a",
             action="store_true",
             help="Fix all issues")
-        )
-        parser.add_argument("--all", "-a", action="store_true", help="Fix all issues")
         parser.add_argument(
             "--dry-run",
             "-d",
@@ -137,7 +138,4 @@ class FixCommand:
             print(output)
 
         # Return appropriate exit code
-        if aggregate_result.get("status") in ["pass", "fixed", "info"]:
-            return 0
-        else:
-            return 1
+        return 0 if aggregate_result.get("status") in ["pass", "fixed", "info"] else 1

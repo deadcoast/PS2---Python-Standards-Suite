@@ -6,13 +6,13 @@ ensuring consistent naming conventions and preventing collisions that
 could lead to unexpected behavior or bugs.
 """
 
-import logging
-from pathlib import Path
-import os
-import re
 import ast
 import builtins
+import logging
+import os
+import re
 from collections import defaultdict
+from pathlib import Path
 from typing import Dict, List, Union
 
 
@@ -212,7 +212,7 @@ class ConflictResolver:
                 "name": module_name,
                 "type": "module",
                 "convention": self._check_naming_convention(
-                    module_name.split(".")[-1], "module"
+                    module_name.split(".")[-1]
                 ),
             }
 
@@ -253,7 +253,7 @@ class ConflictResolver:
                     "line": node.lineno,
                     "type": "class",
                     "convention": self.parent._check_naming_convention(
-                        class_name, "class"
+                        class_name
                     ),
                 }
 
@@ -279,7 +279,7 @@ class ConflictResolver:
                         "line": node.lineno,
                         "type": "method",
                         "convention": self.parent._check_naming_convention(
-                            func_name, "method"
+                            func_name
                         ),
                     }
                 else:
@@ -294,7 +294,7 @@ class ConflictResolver:
                         "line": node.lineno,
                         "type": "function",
                         "convention": self.parent._check_naming_convention(
-                            func_name, "function"
+                            func_name
                         ),
                     }
 
@@ -320,7 +320,7 @@ class ConflictResolver:
                                 "module": module_name,
                                 "scope": scope,
                                 "convention": self.parent._check_naming_convention(
-                                    var_name, "constant"
+                                    var_name
                                 ),
                                 "line": node.lineno,
                                 "type": "constant",
@@ -332,7 +332,7 @@ class ConflictResolver:
                                 "module": module_name,
                                 "scope": scope,
                                 "convention": self.parent._check_naming_convention(
-                                    var_name, "variable"
+                                    var_name
                                 ),
                                 "line": node.lineno,
                                 "type": "variable",
@@ -356,7 +356,7 @@ class ConflictResolver:
                         "line": node.lineno,
                         "type": "import",
                         "convention": self.parent._check_naming_convention(
-                            asname, "import"
+                            asname
                         ),
                     }
 
@@ -379,7 +379,7 @@ class ConflictResolver:
                             "line": node.lineno,
                             "type": "import",
                             "convention": self.parent._check_naming_convention(
-                                asname, "import"
+                                asname
                             ),
                         }
 
@@ -515,7 +515,7 @@ def _check_import_conflicts(self, registry: Dict, scope_registry: Dict) -> List[
                                 if "file" in item
                                 else "unknown"
                             ),
-                            "fix_suggestion": "Rename import using 'as' or rename the conflicting name",  # TODO: Line too long, needs manual fixing
+                            "fix_suggestion": "Rename import using 'as' or rename the conflicting name",
                         },
                     ],
                     "severity": "medium",
@@ -770,13 +770,12 @@ def _get_module_name(self, file_path: Path) -> str:
     return ".".join(parts)
 
 
-def _check_naming_convention(self, name: str, name_type: str) -> str:
+def _check_naming_convention(self, name: str) -> str:
     """
     Check the naming convention of a name.
 
     Args:
         name: Name to check.
-        name_type: Type of name (class, function, etc.).
 
     Returns:
         Name of the convention used.

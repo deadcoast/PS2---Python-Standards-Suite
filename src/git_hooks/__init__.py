@@ -9,7 +9,9 @@ from typing import List, Optional  # TODO: Remove unused imports
 
 
 def install_git_hooks(
-from typing import List, Optional  # TODO: Remove unused imports  # TODO: Remove unused imports
+from typing import (  # TODO: Remove unused imports  # TODO: Remove unused imports
+    List, Optional)
+
 ) -> List[str]:
     """
     Install PS2 Git hooks into a Git repository.
@@ -94,11 +96,11 @@ def uninstall_git_hooks(
 
     # Get all available hooks if hooks_to_uninstall is None
     if hooks_to_uninstall is None:
-        hooks_to_uninstall = []
-        for hook_file in hooks_dir.iterdir():
-            if not hook_file.name.startswith("__") and not hook_file.is_dir():
-                hooks_to_uninstall.append(hook_file.name)
-
+        hooks_to_uninstall = [
+            hook_file.name
+            for hook_file in hooks_dir.iterdir()
+            if not hook_file.name.startswith("__") and not hook_file.is_dir()
+        ]
     # Uninstall each hook
     uninstalled_hooks = []
     for hook_name in hooks_to_uninstall:

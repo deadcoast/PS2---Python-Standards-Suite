@@ -5,11 +5,12 @@ This module provides the 'check' command for the PS2 CLI, allowing users
 to check code quality and standards from the command line.
 """
 
-from typing import Dict, Any, Optional  # TODO: Remove unused imports
+from typing import (  # TODO: Remove unused imports; TODO: Remove unused imports  # TODO: Remove unused imports
+    Any, Dict, Optional)
 
 from ps2.cli.helpers.formatting import format_result, output_formats
 
-from typing import Dict, Any, Optional  # TODO: Remove unused imports  # TODO: Remove unused imports
+
 class CheckCommand:
     """
     Command class for checking code quality.

@@ -6,7 +6,7 @@ This setup script enables installation of the PS2 package.
 
 import os
 
-from setuptools import setup, find_packages
+from setuptools import find_packages, setup
 
 # Read the long description from README.md if it exists
 if os.path.exists("README.md"):

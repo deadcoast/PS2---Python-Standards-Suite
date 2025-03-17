@@ -5,8 +5,19 @@ This module identifies and addresses security vulnerabilities in Python projects
 including insecure code patterns, vulnerable dependencies, and common security
 issues in web applications.
 """
+import ast
+import json
+import logging
+import os
+import re
+import subprocess
+from pathlib import Path
+from typing import Dict, List, Union
 
-from typing import Dict, List, Set, Tuple, Any, Optional, Union  # TODO: Remove unused imports
+# Constants for security scanner
+OS_ENVIRON = "os.environ"
+FIX_ENV_VARS = "Use environment variables to store secret keys"
+SECRET_KEY_WARNING = "Secret key should not be hardcoded"
 
 
 class SecurityScanner:
@@ -14,7 +25,7 @@ class SecurityScanner:
     Scanner for security vulnerabilities in Python projects.
     
     This class identifies security issues in Python projects, including insecure  # TODO: Line too long, needs manual fixing
-from typing import Dict, List, Set, Tuple, Any, Optional, Union  # TODO: Remove unused imports  # TODO: Line too long, needs manual fixing  # TODO: Remove unused imports
+    from typing import Dict, List, Set, Tuple, Any, Optional, Union  # TODO: Remove unused imports  # TODO: Line too long, needs manual fixing  # TODO: Remove unused imports
     web applications, helping developers create more secure Python code.
     """
     
@@ -45,6 +56,7 @@ from typing import Dict, List, Set, Tuple, Any, Optional, Union  # TODO: Remove 
         self.settings = {**self.default_settings, **self.config.get(
             "security_scanner",
             {})
+        }
         
         # Tool availability cache
         self._available_tools = {}
@@ -214,10 +226,7 @@ from typing import Dict, List, Set, Tuple, Any, Optional, Union  # TODO: Remove 
             for req_file in requirements_files:
                 self.logger.info(f"Scanning {req_file}")
                 
-                    result = subprocess.run(cmd,
-                        capture_output=True,
-                        text=True,
-                        check=False)
+                try:
                     cmd = ["safety", "check", "--json", "-r", str(req_file)]
                     result = subprocess.run(cmd, capture_output=True, text=True, check=False)
                     
@@ -303,20 +312,15 @@ from typing import Dict, List, Set, Tuple, Any, Optional, Union  # TODO: Remove 
         """
         self.logger.info("Scanning code for security vulnerabilities")
         
-                result = subprocess.run(cmd,
-                    capture_output=True,
-                    text=True,
-                    check=False)
+        # Initialize the vulnerabilities list
+        vulnerabilities = []
         
-        # Try to use Bandit if available
         if self._is_tool_available("bandit"):
             self.logger.info("Using Bandit to scan code")
             
             try:
                 cmd = ["bandit", "-r", "-f", "json", str(self.project_path)]
-                            "severity": issue.get("issue_severity",
-                            "confidence": issue.get("issue_confidence",
-                                "medium").lower()
+                result = subprocess.run(cmd, capture_output=True, text=True, check=False)
                 
                 try:
                     bandit_result = json.loads(result.stdout)
@@ -373,19 +377,14 @@ from typing import Dict, List, Set, Tuple, Any, Optional, Union  # TODO: Remove 
             "hardcoded_password": {
                 "pattern": self._check_hardcoded_password,
                 "severity": "high",
-                "fix_suggestion": "Use subprocess.run with shell = (
-                    False and a list of arguments"
-                )
                 "fix_suggestion": "Move sensitive data to environment variables or a secure storage solution"
             },
             "sql_injection": {
-                "fix_suggestion": "Use safer alternatives like json instead of pickle"  # TODO: Line too long, needs manual fixing
                 "severity": "high",
                 "description": "Potential SQL injection vulnerability",
                 "fix_suggestion": "Use parameterized queries or an ORM"
             },
             "command_injection": {
-                "fix_suggestion": "Use modern cryptography with strong algorithms"  # TODO: Line too long, needs manual fixing
                 "severity": "high",
                 "description": "Potential command injection vulnerability",
                 "fix_suggestion": "Use subprocess.run with shell=False and a list of arguments"
@@ -491,9 +490,6 @@ from typing import Dict, List, Set, Tuple, Any, Optional, Union  # TODO: Remove 
             "ALTER", "FROM", "WHERE", "JOIN"
         ]
         
-                if (node.left,
-                    ast.Str) or isinstance(node.right,
-                    ast.Str))
         for node in ast.walk(tree):
             # Check for f-strings with SQL keywords
             if isinstance(node, ast.JoinedStr):
@@ -502,10 +498,7 @@ from typing import Dict, List, Set, Tuple, Any, Optional, Union  # TODO: Remove 
                     line = getattr(node, "lineno", 0)
                     issues.append({
                         "line": line,
-            elif isinstance(node,
-                if node.func.attr == "format" and isinstance(node.func.value,
-                    ast.Str) and any(keyword in node.func.value.s.upper() for keyword in sql_keywords)
-                ast.Attribute)
+                        "code": node_str,
                         "confidence": "medium"
                     })
             
@@ -530,21 +523,14 @@ from typing import Dict, List, Set, Tuple, Any, Optional, Union  # TODO: Remove 
                         "line": line,
                         "code": node_str,
                         "confidence": "medium"
-                if isinstance(node.func,
-                    ast.Attribute) and isinstance(node.func.value,
-                    ast.Name) and (node.func.value.id == "os" and node.func.attr in ["system",
-                    "popen"])
+                    })
         
         return issues
     
     def _check_command_injection(self, tree: ast.Module) -> List[Dict]:
         """
         Check for potential command injection vulnerabilities.
-                if isinstance(node.func,
-                                        node.func.attr in ["call",
-                                            "run",
-                                            "Popen"]
-                    ast.Name)
+        
         Args:
             tree: AST of the module to check.
             
@@ -573,24 +559,17 @@ from typing import Dict, List, Set, Tuple, Any, Optional, Union  # TODO: Remove 
                         if (keyword.arg == "shell" and 
                             isinstance(keyword.value, ast.Constant) and 
                             keyword.value.value is True):
-                if isinstance(node.func,
-                    ast.Attribute) and isinstance(node.func.value,
-                    ast.Name) and (node.func.value.id == "pickle" and node.func.attr in ["loads",
-                    "load"])
                             line = getattr(node, "lineno", 0)
                             node_str = ast.unparse(node)
                             issues.append({
                                 "line": line,
                                 "code": node_str,
                                 "confidence": "high"
-                if isinstance(node.func,
-                    ast.Attribute) and isinstance(node.func.value,
-                    ast.Name) and (node.func.value.id == "yaml" and node.func.attr == "load")
+                            })
         
         return issues
     
-                            and keyword.value.attr in ["SafeLoader",
-                                "CSafeLoader"]
+    def _check_insecure_deserialization(self, tree: ast.Module) -> List[Dict]:
         """
         Check for insecure deserialization vulnerabilities.
         
@@ -620,28 +599,27 @@ from typing import Dict, List, Set, Tuple, Any, Optional, Union  # TODO: Remove 
                     safe_loader_used = any(
                         keyword.arg == "Loader"
                         and isinstance(keyword.value, ast.Attribute)
-                if isinstance(node.func,
-                    ast.Attribute) and isinstance(node.func.value,
-                    ast.Name) and (node.func.value.id == "hashlib" and node.func.attr in ["md5",
-                    "sha1"])
-                            hasattr(keyword.value, "attr")
-                            and keyword.value.attr in ["SafeLoader", "CSafeLoader"]
-                        )
+                        and hasattr(keyword.value, "attr")
+                        and keyword.value.attr in ["SafeLoader", "CSafeLoader"]
                         for keyword in node.keywords
                     )
                     if not safe_loader_used:
-                if isinstance(node.func,
-                                        isinstance(node.func.value.value,
-                                        node.func.value.value.id = (
-                                            = "cryptography"):
-                                        )
-                    ast.Attribute) and (hasattr(node.func.value, "value")
+                        line = getattr(node, "lineno", 0)
                         node_str = ast.unparse(node)
                         issues.append({
                             "line": line,
                             "code": node_str,
                             "confidence": "high"
                         })
+                
+                # Check for cryptography
+                if isinstance(node.func, ast.Attribute) and isinstance(node.func.value, ast.Name) and (node.func.value.id == "cryptography"):
+                    node_str = ast.unparse(node)
+                    issues.append({
+                        "line": line,
+                        "code": node_str,
+                        "confidence": "high"
+                    })
 
         return issues
     
@@ -686,52 +664,93 @@ from typing import Dict, List, Set, Tuple, Any, Optional, Union  # TODO: Remove 
         
         return issues
     
-    def _scan_web_security(self) -> Dict:
+    def _filter_vulnerabilities_by_severity(self, vulnerabilities: List[Dict]) -> List[Dict]:
         """
-        Scan web application security issues.
+        Filter vulnerabilities by minimum severity level.
         
+        Args:
+            vulnerabilities: List of vulnerability dictionaries to filter.
+            
         Returns:
-            Dictionary with web security results.
+            Filtered list of vulnerability dictionaries.
         """
-        self.logger.info("Scanning web application security")
-        
-        vulnerabilities = []
-        
-        # Look for common web frameworks
-        is_django = self._has_django_app()
-        is_flask = self._has_flask_app()
-        is_fastapi = self._has_fastapi_app()
-        
-        # Scan Django security issues
-        if is_django:
-            django_vulnerabilities = self._scan_django_security()
-            vulnerabilities.extend(django_vulnerabilities)
-        
-        # Scan Flask security issues
-        if is_flask:
-            flask_vulnerabilities = self._scan_flask_security()
-            vulnerabilities.extend(flask_vulnerabilities)
-        
-        # Scan FastAPI security issues
-        if is_fastapi:
-            fastapi_vulnerabilities = self._scan_fastapi_security()
-            vulnerabilities.extend(fastapi_vulnerabilities)
-        
-        # Scan generic web security issues
-        generic_vulnerabilities = self._scan_generic_web_security()
-        vulnerabilities.extend(generic_vulnerabilities)
-        
         # Filter by minimum severity
         min_severity = self.settings.get("min_severity", "medium")
         severity_levels = {"low": 0, "medium": 1, "high": 2, "critical": 3}
         
         min_severity_level = severity_levels.get(min_severity, 0)
-        vulnerabilities = [
+        return [
             v for v in vulnerabilities 
             if severity_levels.get(v["severity"], 0) >= min_severity_level
         ]
+    
+    def _scan_specific_framework(self, framework: str) -> List[Dict]:
+        """
+        Scan security issues for a specific web framework.
         
-        return {"vulnerabilities": vulnerabilities}
+        Args:
+            framework: The framework to scan.
+            
+        Returns:
+            List of vulnerability dictionaries for the specified framework.
+        """
+        if framework == "Django" and self._has_django_app():
+            return self._scan_django_security()
+        elif framework == "Flask" and self._has_flask_app():
+            return self._scan_flask_security()
+        elif framework == "FastAPI" and self._has_fastapi_app():
+            return self._scan_fastapi_security()
+        return []
+    
+    def _scan_all_frameworks(self) -> List[Dict]:
+        """
+        Scan security issues for all detected web frameworks.
+        
+        Returns:
+            List of vulnerability dictionaries from all frameworks.
+        """
+        vulnerabilities = []
+        
+        # Check for common web frameworks
+        frameworks_to_scan = [
+            ("Django", self._has_django_app, self._scan_django_security),
+            ("Flask", self._has_flask_app, self._scan_flask_security),
+            ("FastAPI", self._has_fastapi_app, self._scan_fastapi_security)
+        ]
+        
+        # Scan each detected framework
+        for name, detector, scanner in frameworks_to_scan:
+            if detector():
+                self.logger.debug(f"Detected {name} framework, scanning for vulnerabilities")
+                framework_vulnerabilities = scanner()
+                vulnerabilities.extend(framework_vulnerabilities)
+        
+        # Add generic web security issues
+        generic_vulnerabilities = self._scan_generic_web_security()
+        vulnerabilities.extend(generic_vulnerabilities)
+        
+        return vulnerabilities
+    
+    def _scan_web_security(self, framework: str = None) -> List[Dict]:
+        """
+        Scan web application security issues.
+        
+        Args:
+            framework: Optional framework name to scan. If None, scans all detected frameworks.
+            
+        Returns:
+            List of vulnerability dictionaries.
+        """
+        self.logger.info(f"Scanning web application security for {framework or 'all frameworks'}")
+        
+        # If a specific framework is provided, only scan that one
+        if framework:
+            vulnerabilities = self._scan_specific_framework(framework)
+        else:
+            vulnerabilities = self._scan_all_frameworks()
+        
+        # Filter and return vulnerabilities by severity
+        return self._filter_vulnerabilities_by_severity(vulnerabilities)
     
     def _has_django_app(self) -> bool:
         """
@@ -755,50 +774,46 @@ from typing import Dict, List, Set, Tuple, Any, Optional, Union  # TODO: Remove 
             True if Flask app, False otherwise.
         """
         # Look for Flask imports in Python files
-        for file_path in self._ast_cache:
-            tree = self._ast_cache[file_path]
-            
-            for node in ast.walk(tree):
-                if isinstance(node, ast.Import):
-                    for name in node.names:
-                        if name.name == "flask":
-                            return True
-                elif isinstance(node, ast.ImportFrom):
-                    if node.module == "flask":
-                        return True
-        
-        return False
+        return self._has_import_or_import_from("flask")
     
     def _has_fastapi_app(self) -> bool:
         """
         Check if the project is a FastAPI application.
         
         Returns:
-                        "description": "Debug mode should be disabled in production",  # TODO: Line too long, needs manual fixing
+            bool: True if the project is a FastAPI application, False otherwise.
         """
         # Look for FastAPI imports in Python files
+        return self._has_import_or_import_from("fastapi")
+        
+    def _has_import_or_import_from(self, module_name: str) -> bool:
+        """
+        Check if any file imports the specified module.
+        
+        Args:
+            module_name: Name of the module to check for.
+            
+        Returns:
+            bool: True if the module is imported, False otherwise.
+        """
         for file_path in self._ast_cache:
-                        "line": self._get_line_number(content,
-                            debug_match.start())
-                        "fix_suggestion": "Set DEBUG = (
-                            False in production environments"
-                        )
+            tree = self._ast_cache[file_path]
+            
             for node in ast.walk(tree):
                 if isinstance(node, ast.Import):
                     for name in node.names:
-                        if name.name == "fastapi":
+                        if name.name == module_name:
                             return True
-                elif isinstance(node, ast.ImportFrom):
-                    if node.module == "fastapi":
-                        return True
+                elif isinstance(node, ast.ImportFrom) and node.module == module_name:
+                    return True
         
-                            "description": "Secret key should not be hardcoded",  # TODO: Line too long, needs manual fixing
+        return False
     
     def _scan_django_security(self) -> List[Dict]:
         """
                             "line": self._get_line_number(content,
                                 secret_key_match.start())
-                            "fix_suggestion": "Use environment variables to store secret keys"  # TODO: Line too long, needs manual fixing
+                            "fix_suggestion": FIX_ENV_VARS  # TODO: Line too long, needs manual fixing
         Returns:
             List of vulnerability dictionaries.
         """
@@ -814,7 +829,8 @@ from typing import Dict, List, Set, Tuple, Any, Optional, Union  # TODO: Remove 
             with open(settings_file, "r", encoding="utf-8") as f:
                 content = f.read()
 
-                if debug_match := re.search(r'DEBUG\s*=\s*True', content):
+                debug_match = re.search(r'DEBUG\s*=\s*True', content)
+                if debug_match:
                     vulnerabilities.append({
                         "type": "web",
                         "issue_type": "django_debug_enabled",
@@ -823,30 +839,31 @@ from typing import Dict, List, Set, Tuple, Any, Optional, Union  # TODO: Remove 
                         "severity": "high",
                         "confidence": "high",
                         "file": relative_path,
-                secret_key_match = re.search(
-                    r'secret_key\s*=\s*[\'"]([^\'"]+)[\'"]',
-                    content)
                         "code": "DEBUG = True",
                         "fix_suggestion": "Set DEBUG = False in production environments"
                     })
 
-                            "description": "Secret key should not be hardcoded",  # TODO: Line too long, needs manual fixing
+                if secret_key_match := re.search(
                     r'SECRET_KEY\s*=\s*[\'"]([^\'"]+)[\'"]', content
                 ):
                     # Check if the secret key is hardcoded (not loaded from environment)
-                    if "os.environ" not in content[:secret_key_match.start()]:
-                        vulnerabilities.append({
-                            "type": "web",
-                            "issue_type": "django_hardcoded_secret",
-                            "fix_suggestion": "Use environment variables to store secret keys",  # TODO: Line too long, needs manual fixing
-                            "description": "Secret key should not be hardcoded",
-                            "severity": "high",
-                            "confidence": "high",
-                            "file": relative_path,
-                            "line": self._get_line_number(content, secret_key_match.start()),
-                            "code": secret_key_match.group(1),
-                            "fix_suggestion": "Use environment variables to store secret keys"
-                        })
+                    if OS_ENVIRON not in content[:secret_key_match.start()]:
+                        vulnerabilities.append(
+                            {
+                                "type": "web",
+                                "issue_type": "django_hardcoded_secret",
+                                "fix_suggestion": FIX_ENV_VARS,
+                                "description": SECRET_KEY_WARNING,
+                                "severity": "high",
+                                "confidence": "high",
+                                "file": relative_path,
+                                "line": self._get_line_number(
+                                    content, secret_key_match.start()
+                                ),
+                                "code": secret_key_match[1],
+                                "remediation": FIX_ENV_VARS,
+                            }
+                        )
 
         return vulnerabilities
     
@@ -872,22 +889,17 @@ from typing import Dict, List, Set, Tuple, Any, Optional, Union  # TODO: Remove 
                 # Check for insecure secret key
                 secret_key_match = re.search(r'secret_key\s*=\s*[\'"]([^\'"]+)[\'"]', content)
                 if secret_key_match and "os.environ" not in content[:secret_key_match.start()]:
-                    vulnerabilities.append(
-                                "description": "Secret key should not be hardcoded",  # TODO: Line too long, needs manual fixing
-                            "type": "web",
-                            "issue_type": "flask_hardcoded_secret",
-                            "issue_name": "Flask Hardcoded Secret Key",
-                            "description": "Secret key should not be hardcoded",
-                            "severity": "high",
-                            "confidence": "high",
-                            "file": relative_path,
-                                "fix_suggestion": "Use environment variables to store secret keys",  # TODO: Line too long, needs manual fixing
-                                content, secret_key_match.start()
-                            ),
-                            "code": secret_key_match[1],
-                            "fix_suggestion": "Use environment variables to store secret keys",
-                        }
-                    )
+                    vulnerabilities.append({
+                        "type": "web",
+                        "issue_type": "flask_hardcoded_secret",
+                        "issue_name": "Flask Hardcoded Secret Key",
+                        "description": SECRET_KEY_WARNING,
+                        "severity": "high",
+                        "confidence": "high",
+                        "file": relative_path,
+                        "code": secret_key_match[1],
+                        "fix_suggestion": FIX_ENV_VARS
+                    })
 
         return vulnerabilities
         
@@ -914,13 +926,13 @@ from typing import Dict, List, Set, Tuple, Any, Optional, Union  # TODO: Remove 
                     r'secret_key\s*=\s*[\'"]([^\'"]+)[\'"]', content
                 ):
                     # Check if the secret key is hardcoded (not loaded from environment)
-                    if "os.environ" not in content[:secret_key_match.start()]:
+                    if OS_ENVIRON not in content[:secret_key_match.start()]:
                         vulnerabilities.append(
                             {
                                 "type": "web",
                                 "issue_type": "fastapi_hardcoded_secret",
                                 "issue_name": "FastAPI Hardcoded Secret Key",
-                                "description": "Secret key should not be hardcoded",
+                                "description": SECRET_KEY_WARNING,
                                 "severity": "high",
                                 "confidence": "high",
                                 "file": relative_path,
@@ -928,7 +940,7 @@ from typing import Dict, List, Set, Tuple, Any, Optional, Union  # TODO: Remove 
                                     content, secret_key_match.start()
                                 ),
                                 "code": secret_key_match[1],
-                                "fix_suggestion": "Use environment variables to store secret keys",
+                                "fix_suggestion": FIX_ENV_VARS
                             }
                         )
 

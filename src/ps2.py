@@ -7,8 +7,8 @@ providing a unified interface to access all PS2 functionality.
 """
 
 import logging
-import sys
 import os
+import sys
 from pathlib import Path
 from typing import Dict, List, Optional
 
@@ -19,6 +19,7 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")
 try:
     # Try importing with the 'src.' prefix (when installed as a package)
     # Import core components
+    from src.config import default_settings
     from src.core.analyzer import CodeAnalyzer
     from src.core.conflict_resolver import ConflictResolver
     from src.core.dependency_manager import DependencyManager
@@ -28,14 +29,13 @@ try:
     from src.core.project_generator import ProjectGenerator
     from src.core.security_scanner import SecurityScanner
     from src.core.task_manager import TaskManager
-
     # Import utilities
     from src.utils.logging_utils import setup_logging
     from src.utils.path_utils import get_project_root
-    from src.config import default_settings
 except ImportError:
     # Fall back to direct imports (when running the script directly)
     # Import core components
+    from config import default_settings
     from core.analyzer import CodeAnalyzer
     from core.conflict_resolver import ConflictResolver
     from core.dependency_manager import DependencyManager
@@ -45,11 +45,9 @@ except ImportError:
     from core.project_generator import ProjectGenerator
     from core.security_scanner import SecurityScanner
     from core.task_manager import TaskManager
-
     # Import utilities
     from utils.logging_utils import setup_logging
     from utils.path_utils import get_project_root
-    from config import default_settings
 
 
 class PS2:

@@ -4,9 +4,20 @@ Dependency Manager Module for PS2.
 This module manages Python project dependencies, handling requirements.txt
 generation, virtual environment management, and dependency conflict resolution.
 """
+import contextlib
+import datetime
+import json
+import logging
+import os
+import re
+import subprocess
+import tempfile
+from pathlib import Path
+from typing import Dict, List, Optional, Set, Union
 
-
-from typing import Dict, List, Set, Tuple, Any, Optional, Union  # TODO: Remove unused imports
+import pkg_resources
+import toml
+import tomli
 
 
 class DependencyManager:
@@ -103,7 +114,7 @@ from typing import Dict, List, Set, Tuple, Any, Optional, Union  # TODO: Remove 
         updated_files = []
         if update and (missing_dependencies or outdated_dependencies):
             updated_files = self._update_requirements(
-                current_requirements, missing_dependencies, outdated_dependencies  # TODO: Line too long, needs manual fixing
+                current_requirements, missing_dependencies, outdated_dependencies
             )
 
         # Build result
@@ -234,7 +245,7 @@ from typing import Dict, List, Set, Tuple, Any, Optional, Union  # TODO: Remove 
         return requirements_files
 
     def _parse_requirements(self,
-        requirements_files: List[Path])
+        requirements_files: List[Path]) -> Dict[str, Dict[str, List[str]]]:
         """
         Parse requirements from files.
 
@@ -261,9 +272,7 @@ from typing import Dict, List, Set, Tuple, Any, Optional, Union  # TODO: Remove 
                 self._parse_requirements_txt(file_path, requirements)
 
         return requirements
-    def _parse_requirements_txt(self,
-        file_path: Path,
-        requirements: Dict)
+
     def _parse_requirements_txt(self, file_path: Path, requirements: Dict) -> None:
         """
         Parse a requirements.txt file.
@@ -326,11 +335,7 @@ from typing import Dict, List, Set, Tuple, Any, Optional, Union  # TODO: Remove 
             if install_requires_match := re.search(
                 r"install_requires\s*=\s*\[(.*?)\]", content, re.DOTALL
             ):
-                for package in re.finditer(r"['\"]([^'\"]+)['\"]",
-                    install_requires)
-
-                # Parse package names
-                for package in re.finditer(r"['\"]([^'\"]+)['\"]", install_requires):
+                for package in re.finditer(r"['\"]([^'\"]+)['\"]", install_requires_match[1]):
                     package_str = package.group(1)
 
                     try:
@@ -354,9 +359,6 @@ from typing import Dict, List, Set, Tuple, Any, Optional, Union  # TODO: Remove 
                         self.logger.warning(
                             f"Could not parse requirement '{package_str}' in {file_path}: {e}"
                         )
-    def _parse_pyproject_toml(self,
-        file_path: Path,
-        requirements: Dict)
         except (UnicodeDecodeError, PermissionError) as e:
             self.logger.warning(f"Could not read {file_path}: {e}")
 
@@ -497,18 +499,16 @@ from typing import Dict, List, Set, Tuple, Any, Optional, Union  # TODO: Remove 
                         str(file_path.relative_to(self.project_path))
                     )
 
-                    elif isinstance(constraint,
-                        dict)
-                    if isinstance(constraint, str):
+                    if isinstance(constraint, dict):
+                        if "version" in constraint:
+                            requirements[package_name]["specs"].append(
+                                ("==", constraint["version"])
+                            )
+                    elif isinstance(constraint, str):
                         if constraint != "*":
                             requirements[package_name]["specs"].append(
                                 ("==", constraint)
                             )
-                    elif isinstance(constraint, dict) and "version" in constraint:
-                        requirements[package_name]["specs"].append(
-                            ("==", constraint["version"])
-                        )
-
         except ImportError:
             self.logger.warning("toml module not available, skipping Pipfile parsing")
         except (UnicodeDecodeError, PermissionError, toml.TomlDecodeError) as e:
@@ -554,9 +554,7 @@ from typing import Dict, List, Set, Tuple, Any, Optional, Union  # TODO: Remove 
 
         return unused
 
-            imports: Dictionary mapping module names to sets of files using them.  # TODO: Line too long, needs manual fixing
-        self, imports: Dict[str, Set[str]], requirements: Dict
-    ) -> List[Dict]:
+    def _find_missing_dependencies(self, imports: Dict[str, Set[str]], requirements: Dict) -> List[Dict]:
         """
         Find missing dependencies.
 
@@ -575,7 +573,6 @@ from typing import Dict, List, Set, Tuple, Any, Optional, Union  # TODO: Remove 
         import_to_package = self._get_import_package_mapping()
 
         for import_name, files in imports.items():
-                package_name not in requirements for package_name in package_names  # TODO: Line too long, needs manual fixing
             package_names = import_to_package.get(
                 import_name.lower(), [import_name.lower()]
             )
@@ -605,10 +602,7 @@ from typing import Dict, List, Set, Tuple, Any, Optional, Union  # TODO: Remove 
         Returns:
             List of outdated dependencies.
         """
-            result = subprocess.run(cmd,
-                capture_output=True,
-                text=True,
-                check=False)
+        self.logger.info("Finding outdated dependencies")
 
         outdated = []
 
@@ -698,10 +692,6 @@ from typing import Dict, List, Set, Tuple, Any, Optional, Union  # TODO: Remove 
             with tempfile.NamedTemporaryFile(mode="w", delete=False) as temp:
                 for package_name, package_info in requirements.items():
                     if specs := package_info["specs"]:
-            result = subprocess.run(cmd,
-                capture_output=True,
-                text=True,
-                check=False)
                         op, version = specs[0]
                         temp.write(f"{package_name}{op}{version}\n")
                     else:
@@ -712,8 +702,6 @@ from typing import Dict, List, Set, Tuple, Any, Optional, Union  # TODO: Remove 
             # Run safety check
             cmd = ["safety", "check", "--json", "-r", temp_path]
             result = subprocess.run(cmd, capture_output=True, text=True, check=False)
-                            "safe_version": vuln.get("fixed_version",
-                                "unknown")
             # Clean up temp file
             os.unlink(temp_path)
 
@@ -737,7 +725,6 @@ from typing import Dict, List, Set, Tuple, Any, Optional, Union  # TODO: Remove 
 
         except (
             subprocess.SubprocessError,
-            current_requirements: Dictionary mapping package names to requirement info.  # TODO: Line too long, needs manual fixing
             FileNotFoundError,
         ) as e:
             self.logger.warning(f"Could not check for vulnerabilities: {e}")
@@ -772,9 +759,7 @@ from typing import Dict, List, Set, Tuple, Any, Optional, Union  # TODO: Remove 
                 missing,
                 outdated,
                 dev=True)
-                f.write("# Generated by PS2 Dependency Manager\n\n")
-
-            updated_files.append(str(main_requirements))
+            updated_files.append(str(dev_requirements))
 
         # Update existing requirements files
         if main_requirements.exists():
@@ -906,50 +891,98 @@ from typing import Dict, List, Set, Tuple, Any, Optional, Union  # TODO: Remove 
             "ast",
             "asyncio",
             "base64",
+            "calendar",
+            "codecs",
             "collections",
+            "concurrent",
             "contextlib",
             "copy",
             "csv",
             "datetime",
             "decimal",
             "difflib",
+            "dis",
+            "email",
             "enum",
-            "functools",
+            "fileinput",
+            "fnmatch",
+            "fractions",
+            "gc",
+            "gettext",
             "glob",
+            "gzip",
             "hashlib",
+            "heapq",
+            "html",
             "http",
-            "importlib",
             "inspect",
             "io",
+            "ipaddress",
             "itertools",
             "json",
+            "keyword",
+            "locale",
             "logging",
-            "math",
+            "lzma",
+            "mimetypes",
+            "msvcrt",
+            "multiprocessing",
+            "netrc",
+            "operator",
             "os",
             "pathlib",
             "pickle",
+            "platform",
+            "poplib",
+            "posix",
+            "posixpath",
+            "pprint",
+            "pydoc",
+            "queue",
             "random",
             "re",
+            "readline",
+            "reprlib",
+            "resource",
+            "rlcompleter",
+            "runpy",
+            "sched",
+            "select",
+            "selectors",
             "shutil",
+            "signal",
+            "site",
             "socket",
+            "socketserver",
             "sqlite3",
+            "ssl",
+            "stat",
             "statistics",
             "string",
+            "stringprep",
+            "struct",
             "subprocess",
             "sys",
-            "tempfile",
+            "tarfile",
+            "telnetlib",
+            "this",
             "threading",
             "time",
             "timeit",
-            "tkinter",
             "traceback",
+            "types",
             "typing",
+            "unicodedata",
             "unittest",
             "urllib",
             "uuid",
-            "warnings",
-            "xml",
+            "venv",
+            "wave",
+            "weakref",
+            "webbrowser",
+            "winreg",
             "zipfile",
+            "zlib",
         }
 
     def _get_package_import_mapping(self) -> Dict[str, List[str]]:

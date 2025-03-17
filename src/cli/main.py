@@ -5,13 +5,17 @@ This module provides a command-line interface for using the PS2 system,
 allowing users to access PS2 features directly from the terminal.
 """
 
-from typing import Dict, List, Any, Optional, Union  # TODO: Remove unused imports
+from typing import (Any, Dict, List, Optional,  # TODO: Remove unused imports
+                    Union)
 
 # Add parent directory to path to allow importing PS2 modules
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
 
-from typing import Dict, List, Any, Optional, Union  # TODO: Remove unused imports  # TODO: Line too long, needs manual fixing  # TODO: Remove unused imports
+from typing import (  # TODO: Remove unused imports  # TODO: Line too long, needs manual fixing  # TODO: Remove unused imports
+    Any, Dict, List, Optional, Union)
+
+
 def parse_args() -> argparse.Namespace:
     """
     Parse command line arguments.
@@ -210,16 +214,19 @@ def print_result(result: Dict, no_color: bool) -> None:
         print(f"Message: {result.get('message', '')}")
     else:
         try:
-            from colorama import Fore, Style, init  # TODO: Remove unused imports
+            from colorama import (Fore, Style,  # TODO: Remove unused imports
+                                  init)
 
             init()
-            from colorama import Fore, Style, init  # TODO: Remove unused imports  # TODO: Line too long, needs manual fixing  # TODO: Remove unused imports
+            from colorama import (  # TODO: Remove unused imports  # TODO: Line too long, needs manual fixing  # TODO: Remove unused imports
+                Fore, Style, init)
             if result.get("status") == "pass":
                 status_str = Fore.GREEN + "PASS" + Style.RESET_ALL
             elif result.get("status") == "fail":
                 status_str = Fore.RED + "FAIL" + Style.RESET_ALL
             elif result.get("status") == "fixed":
-            from colorama import Fore, Style, init  # TODO: Remove unused imports  # TODO: Remove unused imports
+            from colorama import (  # TODO: Remove unused imports  # TODO: Remove unused imports
+                Fore, Style, init)
             elif result.get("status") == "info":
                 status_str = Fore.BLUE + "INFO" + Style.RESET_ALL
             else:

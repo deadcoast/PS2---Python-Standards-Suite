@@ -5,12 +5,11 @@ This module provides the 'monitor' command for the PS2 CLI, allowing users
 to monitor code performance from the command line.
 """
 
-from typing import Dict, Any, Optional  # TODO: Remove unused imports
+from typing import (  # TODO: Remove unused imports; TODO: Remove unused imports  # TODO: Remove unused imports
+    Any, Dict, Optional)
 
 from ps2.cli.helpers.formatting import format_result, output_formats
 
-
-from typing import Dict, Any, Optional  # TODO: Remove unused imports  # TODO: Remove unused imports
     """
     Command class for monitoring code performance.
 

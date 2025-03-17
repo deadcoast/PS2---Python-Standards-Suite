@@ -6,7 +6,8 @@ throughout the PS2 system, including decorators for function call logging
 and execution time tracking.
 """
 
-from typing import Any, Callable, Dict, List, Optional, Union, TypeVar, cast  # TODO: Remove unused imports
+from typing import (Any, Callable, Dict, List,  # TODO: Remove unused imports
+                    Optional, TypeVar, Union, cast)
 
 # Type variable for decorator return types
 F = TypeVar("F", bound=Callable[..., Any])
@@ -16,7 +17,9 @@ def setup_logging(
     level: int = logging.INFO,
     log_file: Optional[Union[str, Path]] = None,
     log_format: str = "%(asctime)s - %(name)s - %(levelname)s - %(message)s",
-from typing import Any, Callable, Dict, List, Optional, Union, TypeVar, cast  # TODO: Remove unused imports  # TODO: Line too long, needs manual fixing  # TODO: Remove unused imports
+from typing import (  # TODO: Remove unused imports  # TODO: Line too long, needs manual fixing  # TODO: Remove unused imports
+    Any, Callable, Dict, List, Optional, TypeVar, Union, cast)
+
     use_colors: bool = True,
     max_file_size: int = 10 * 1024 * 1024,  # 10 MB
     backup_count: int = 5,
@@ -139,7 +142,7 @@ def log_function_call(level: int = logging.DEBUG) -> Callable[[F], F]:
                 # Log return value (truncate if too long)
                 result_str = repr(result)
                 if len(result_str) > 1000:
-                    result_str = result_str[:1000] + "..."
+                    result_str = f"{result_str[:1000]}..."
 
                 logger.log(level, f"{name} returned: {result_str}")
 

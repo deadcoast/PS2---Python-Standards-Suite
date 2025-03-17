@@ -4,13 +4,8 @@ Documentation Templates Package for PS2.
 This package provides templates for generating documentation for Python projects.  # TODO: Line too long, needs manual fixing
 """
 
-from typing import Dict, List, Any  # TODO: Remove unused imports
-
-from typing import (
-    Dict,
-    List,
-    Any,
-)  # TODO: Remove unused imports  # TODO: Remove unused imports
+from typing import (  # TODO: Remove unused imports; TODO: Remove unused imports  # TODO: Remove unused imports
+    Any, Dict, List)
 
 TEMPLATES_DIR = Path(__file__).parent
 

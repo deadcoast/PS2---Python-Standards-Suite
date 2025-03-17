@@ -1,22 +1,23 @@
 """
 Metrics Database Module for PS2.
 
-This module provides functionality for storing, retrieving, and managing performance  # TODO: Line too long, needs manual fixing
-metrics in a database, enabling long-term tracking and analysis of project performance.  # TODO: Line too long, needs manual fixing
+This module provides functionality for:
+- Storing, retrieving, and managing performance metrics in a database
+- Enabling long-term tracking and analysis of project performance
 """
 
-from datetime import datetime
+import csv
 import json
 import logging
+import os
+import sqlite3
 import time
 from contextlib import contextmanager
-import csv
-import os
-from typing import Dict, List, Any, Optional, Union, Iterator
+from datetime import datetime
 from pathlib import Path
-import sqlite3
-from ps2.database.schema import create_tables, get_schema_version
+from typing import Any, Dict, Iterator, List, Optional, Union
 
+from ps2.database.schema import create_tables, get_schema_version
 
 # Constants
 DEFAULT_DB_PATH = "ps2_metrics.db"

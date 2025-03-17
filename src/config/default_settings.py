@@ -6,12 +6,8 @@ serving as the baseline configuration that can be overridden by user-specific
 settings.
 """
 
-from typing import Dict, Any  # TODO: Remove unused imports
-
-from typing import (
-    Dict,
-    Any,
-)  # TODO: Remove unused imports  # TODO: Remove unused imports
+from typing import (  # TODO: Remove unused imports; TODO: Remove unused imports  # TODO: Remove unused imports
+    Any, Dict)
 
 
 def get_default_config() -> Dict[str, Any]:
@@ -21,8 +17,7 @@ def get_default_config() -> Dict[str, Any]:
     Returns:
         Dictionary with default configuration settings.
     """
-    # Base configuration
-    config = {
+    return {
         # General settings
         "general": {
             "verbose": False,
@@ -134,8 +129,6 @@ def get_default_config() -> Dict[str, Any]:
             "track_resolution_time": True,
         },
     }
-
-    return config
 
 
 def get_config_from_file(config_path: Path) -> Dict[str, Any]:

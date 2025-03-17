@@ -5,7 +5,7 @@ This module provides the 'report' command for the PS2 CLI, allowing users
 to generate comprehensive reports about their Python projects.
 """
 
-from typing import Dict, Any, List, Optional  # TODO: Remove unused imports
+from typing import Any, Dict, List, Optional  # TODO: Remove unused imports
 
 from ps2.cli.helpers.formatting import format_result, output_formats
 

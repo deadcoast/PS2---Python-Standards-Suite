@@ -6,8 +6,7 @@ to create, update, and query issues in GitHub repositories.
 """
 
 import re
-
-from typing import Dict, List, Any, Optional, Union
+from typing import Any, Dict, List, Optional, Union
 
 # Try to import GitHub API client
 try:
