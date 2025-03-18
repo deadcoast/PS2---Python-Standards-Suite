@@ -12,7 +12,7 @@ import os
 import re
 import subprocess
 from pathlib import Path
-from typing import Dict, List, Union
+from typing import Dict, List, Union, Optional
 
 # Constants for security scanner
 OS_ENVIRON = "os.environ"
@@ -199,6 +199,84 @@ class SecurityScanner:
             except (SyntaxError, UnicodeDecodeError) as e:
                 self.logger.warning(f"Failed to parse {file_path}: {e}")
     
+    def _find_requirements_files(self) -> List[Path]:
+        """Find requirements files in the project."""
+        requirements_files = list(self.project_path.glob("requirements*.txt"))
+        requirements_files.extend(list(self.project_path.glob("requirements/*.txt")))
+        return requirements_files
+    
+    def _scan_with_safety(self, req_file: Path) -> List[Dict]:
+        """Scan a requirements file with safety."""
+        vulnerabilities = []
+        self.logger.info(f"Scanning {req_file}")
+        
+        try:
+            cmd = ["safety", "check", "--json", "-r", str(req_file)]
+            result = subprocess.run(cmd, capture_output=True, text=True, check=False)
+            
+            if result.returncode != 0:
+                # Safety found vulnerabilities
+                try:
+                    safety_result = json.loads(result.stdout)
+                    
+                    for vuln in safety_result:
+                        vulnerability = {
+                            "type": "dependency",
+                            "package": vuln[0],
+                            "installed_version": vuln[2],
+                            "vulnerability_id": vuln[4],
+                            "description": vuln[3],
+                            "severity": self._map_safety_severity(vuln),
+                            "file": str(req_file.relative_to(self.project_path)),
+                            "fix_available": vuln[5] if len(vuln) > 5 else False,
+                            "fix_version": vuln[6] if len(vuln) > 6 else None,
+                        }
+                        
+                        vulnerabilities.append(vulnerability)
+                except (json.JSONDecodeError, IndexError) as e:
+                    self.logger.warning(f"Failed to parse safety output: {e}")
+            
+        except subprocess.SubprocessError as e:
+            self.logger.warning(f"Failed to run safety on {req_file}: {e}")
+            
+        return vulnerabilities
+    
+    def _scan_with_pip_audit(self) -> List[Dict]:
+        """Scan dependencies with pip-audit."""
+        vulnerabilities = []
+        self.logger.info("Using pip-audit to scan dependencies")
+        
+        try:
+            cmd = ["pip-audit", "--format", "json"]
+            result = subprocess.run(cmd, capture_output=True, text=True, check=False)
+            
+            if result.returncode != 0:
+                # pip-audit found vulnerabilities
+                try:
+                    audit_result = json.loads(result.stdout)
+                    
+                    for vuln in audit_result.get("vulnerabilities", []):
+                        vulnerability = {
+                            "type": "dependency",
+                            "package": vuln.get("name"),
+                            "installed_version": vuln.get("version"),
+                            "vulnerability_id": vuln.get("id"),
+                            "description": vuln.get("description"),
+                            "severity": self._map_audit_severity(vuln.get("severity")),
+                            "file": "requirements.txt",  # Placeholder
+                            "fix_available": vuln.get("fix_version") is not None,
+                            "fix_version": vuln.get("fix_version"),
+                        }
+                        
+                        vulnerabilities.append(vulnerability)
+                except json.JSONDecodeError as e:
+                    self.logger.warning(f"Failed to parse pip-audit output: {e}")
+        
+        except subprocess.SubprocessError as e:
+            self.logger.warning(f"Failed to run pip-audit: {e}")
+            
+        return vulnerabilities
+    
     def _scan_dependencies(self) -> Dict:
         """
         Scan project dependencies for vulnerabilities.
@@ -207,16 +285,12 @@ class SecurityScanner:
             Dictionary with dependency vulnerability results.
         """
         self.logger.info("Scanning dependencies for vulnerabilities")
-        
         vulnerabilities = []
         
         # Try to use safety if available
         if self._is_tool_available("safety"):
             self.logger.info("Using safety to scan dependencies")
-            
-            # Find requirements files
-            requirements_files = list(self.project_path.glob("requirements*.txt"))
-            requirements_files.extend(list(self.project_path.glob("requirements/*.txt")))
+            requirements_files = self._find_requirements_files()
             
             if not requirements_files:
                 self.logger.warning("No requirements files found")
@@ -224,82 +298,14 @@ class SecurityScanner:
             
             # Scan each requirements file
             for req_file in requirements_files:
-                self.logger.info(f"Scanning {req_file}")
-                
-                try:
-                    cmd = ["safety", "check", "--json", "-r", str(req_file)]
-                    result = subprocess.run(cmd, capture_output=True, text=True, check=False)
-                    
-                    if result.returncode != 0:
-                        # Safety found vulnerabilities
-                        try:
-                            safety_result = json.loads(result.stdout)
-                            
-                            for vuln in safety_result:
-                                vulnerability = {
-                                    "type": "dependency",
-                                    "package": vuln[0],
-                                    "installed_version": vuln[2],
-                                    "vulnerability_id": vuln[4],
-                                    "description": vuln[3],
-                                    "severity": self._map_safety_severity(vuln),
-                                    "file": str(req_file.relative_to(self.project_path)),
-                                    "fix_available": vuln[5] if len(vuln) > 5 else False,
-                                    "fix_version": vuln[6] if len(vuln) > 6 else None,
-                                }
-                                
-                                vulnerabilities.append(vulnerability)
-                        except (json.JSONDecodeError, IndexError) as e:
-                            self.logger.warning(f"Failed to parse safety output: {e}")
-                    
-                except subprocess.SubprocessError as e:
-                    self.logger.warning(f"Failed to run safety on {req_file}: {e}")
+                vulnerabilities.extend(self._scan_with_safety(req_file))
         
         # Try to use pip-audit if safety is not available
-                result = subprocess.run(cmd,
-                    capture_output=True,
-                    text=True,
-                    check=False)
-            self.logger.info("Using pip-audit to scan dependencies")
-            
-            try:
-                cmd = ["pip-audit", "--format", "json"]
-                result = subprocess.run(cmd, capture_output=True, text=True, check=False)
-                
-                if result.returncode != 0:
-                    # pip-audit found vulnerabilities
-                    try:
-                        audit_result = json.loads(result.stdout)
-                        
-                        for vuln in audit_result.get("vulnerabilities", []):
-                            vulnerability = {
-                                "type": "dependency",
-                                "package": vuln.get("name"),
-                                "installed_version": vuln.get("version"),
-                                "vulnerability_id": vuln.get("id"),
-                                "description": vuln.get("description"),
-                                "severity": self._map_audit_severity(vuln.get("severity")),
-                                "file": "requirements.txt",  # Placeholder
-                                "fix_available": vuln.get("fix_version") is not None,
-                                "fix_version": vuln.get("fix_version"),
-                            }
-                            
-                            vulnerabilities.append(vulnerability)
-                    except json.JSONDecodeError as e:
-                        self.logger.warning(f"Failed to parse pip-audit output: {e}")
-            
-            except subprocess.SubprocessError as e:
-                self.logger.warning(f"Failed to run pip-audit: {e}")
+        elif self._is_tool_available("pip-audit"):
+            vulnerabilities.extend(self._scan_with_pip_audit())
         
         # Filter by minimum severity
-        min_severity = self.settings.get("min_severity", "medium")
-        severity_levels = {"low": 0, "medium": 1, "high": 2, "critical": 3}
-        
-        min_severity_level = severity_levels.get(min_severity, 0)
-        vulnerabilities = [
-            v for v in vulnerabilities 
-            if severity_levels.get(v["severity"], 0) >= min_severity_level
-        ]
+        vulnerabilities = self._filter_vulnerabilities_by_severity(vulnerabilities)
         
         return {"vulnerabilities": vulnerabilities}
     
@@ -429,6 +435,61 @@ class SecurityScanner:
         
         return vulnerabilities
     
+    def _is_suspicious_password_variable(self, var_name: str, patterns: List[str]) -> bool:
+        """
+        Check if a variable name matches any suspicious password pattern.
+        
+        Args:
+            var_name: The variable name to check.  
+            patterns: List of regex patterns to match against.
+            
+        Returns:
+            True if the variable name matches any pattern, False otherwise.
+        """
+        return any(re.search(pattern, var_name) for pattern in patterns)
+    
+    def _create_password_issue(self, node: ast.AST, var_name: str, value: str) -> Dict:
+        """
+        Create an issue dictionary for a hardcoded password.
+        
+        Args:
+            node: The AST node containing the hardcoded password.
+            var_name: The name of the variable containing the password.
+            value: The hardcoded password value.
+            
+        Returns:
+            Dictionary with issue details.
+        """
+        line = getattr(node, "lineno", 0)
+        code = f"{var_name} = '{value}'"
+        
+        return {
+            "line": line,
+            "code": code,
+            "confidence": "medium"
+        }
+    
+    def _check_assignment_for_hardcoded_password(self, node: ast.Assign, password_patterns: List[str]) -> Optional[Dict]:
+        """
+        Check if an assignment contains a hardcoded password.
+        
+        Args:
+            node: The assignment node to check.
+            password_patterns: List of regex patterns for password-like variable names.
+            
+        Returns:
+            Issue dictionary if a hardcoded password is found, None otherwise.
+        """
+        for target in node.targets:
+            if isinstance(target, ast.Name):
+                var_name = target.id.lower()
+                
+                # Check if variable name matches any pattern and value is a string literal
+                if (self._is_suspicious_password_variable(var_name, password_patterns) and 
+                    isinstance(node.value, ast.Str) and len(node.value.s) > 3):
+                    return self._create_password_issue(node, var_name, node.value.s)
+        return None
+    
     def _check_hardcoded_password(self, tree: ast.Module) -> List[Dict]:
         """
         Check for hardcoded passwords or secrets.
@@ -440,8 +501,8 @@ class SecurityScanner:
             List of issue dictionaries.
         """
         issues = []
-        
-        # Look for assignments with suspicious variable names and string literals
+
+        # Define patterns for password-like variable names
         password_patterns = [
             r"password",
             r"passwd",
@@ -452,25 +513,99 @@ class SecurityScanner:
             r"apikey",
             r"api_key",
         ]
-        
+
+        # Check all assignments in the AST
         for node in ast.walk(tree):
             if isinstance(node, ast.Assign):
-                for target in node.targets:
-                    if isinstance(target, ast.Name):
-                        var_name = target.id.lower()
-                        
-                        # Check if variable name matches any pattern
-                        if any(re.search(pattern, var_name) for pattern in password_patterns) and (isinstance(node.value, ast.Str) and len(node.value.s) > 3):
-                            line = getattr(node, "lineno", 0)
-                            code = f"{var_name} = '{node.value.s}'"
-                            
-                            issues.append({
-                                "line": line,
-                                "code": code,
-                                "confidence": "medium"
-                            })
-        
+                if issue := self._check_assignment_for_hardcoded_password(
+                    node, password_patterns
+                ):
+                    issues.append(issue)
+
         return issues
+    
+    def _contains_sql_keywords(self, text: str, keywords: List[str]) -> bool:
+        """
+        Check if a text contains any SQL keywords.
+        
+        Args:
+            text: The text to check.
+            keywords: List of SQL keywords to check for.
+            
+        Returns:
+            True if the text contains any SQL keyword, False otherwise.
+        """
+        return any(keyword in text.upper() for keyword in keywords)
+    
+    def _create_sql_injection_issue(self, node: ast.AST, node_str: str) -> Dict:
+        """
+        Create an issue dictionary for a potential SQL injection vulnerability.
+        
+        Args:
+            node: The AST node containing the potential vulnerability.
+            node_str: String representation of the node.
+            
+        Returns:
+            Dictionary with issue details.
+        """
+        line = getattr(node, "lineno", 0)
+        return {
+            "line": line,
+            "code": node_str,
+            "confidence": "medium"
+        }
+    
+    def _check_joined_str_for_sql_injection(self, node: ast.JoinedStr, sql_keywords: List[str]) -> Optional[Dict]:
+        """
+        Check if a JoinedStr (f-string) contains potential SQL injection.
+        
+        Args:
+            node: The JoinedStr node to check.
+            sql_keywords: List of SQL keywords to check for.
+            
+        Returns:
+            Issue dictionary if vulnerability found, None otherwise.
+        """
+        node_str = ast.unparse(node)
+        if self._contains_sql_keywords(node_str, sql_keywords):
+            return self._create_sql_injection_issue(node, node_str)
+        return None
+    
+    def _check_binop_for_sql_injection(self, node: ast.BinOp, sql_keywords: List[str]) -> Optional[Dict]:
+        """
+        Check if a binary operation contains potential SQL injection.
+        
+        Args:
+            node: The BinOp node to check.
+            sql_keywords: List of SQL keywords to check for.
+            
+        Returns:
+            Issue dictionary if vulnerability found, None otherwise.
+        """
+        if isinstance(node.op, ast.Add) and (isinstance(node.left, ast.Str) or isinstance(node.right, ast.Str)):
+            node_str = ast.unparse(node)
+            if self._contains_sql_keywords(node_str, sql_keywords):
+                return self._create_sql_injection_issue(node, node_str)
+        return None
+    
+    def _check_format_for_sql_injection(self, node: ast.Call, sql_keywords: List[str]) -> Optional[Dict]:
+        """
+        Check if a string format call contains potential SQL injection.
+        
+        Args:
+            node: The Call node to check.
+            sql_keywords: List of SQL keywords to check for.
+            
+        Returns:
+            Issue dictionary if vulnerability found, None otherwise.
+        """
+        if (isinstance(node.func, ast.Attribute) and 
+            node.func.attr == "format" and 
+            isinstance(node.func.value, ast.Str) and 
+            self._contains_sql_keywords(node.func.value.s, sql_keywords)):
+            node_str = ast.unparse(node)
+            return self._create_sql_injection_issue(node, node_str)
+        return None
     
     def _check_sql_injection(self, tree: ast.Module) -> List[Dict]:
         """
@@ -483,50 +618,77 @@ class SecurityScanner:
             List of issue dictionaries.
         """
         issues = []
-        
+
         # Look for string formatting or concatenation with SQL keywords
         sql_keywords = [
             "SELECT", "INSERT", "UPDATE", "DELETE", "DROP", "CREATE",
             "ALTER", "FROM", "WHERE", "JOIN"
         ]
-        
+
         for node in ast.walk(tree):
             # Check for f-strings with SQL keywords
             if isinstance(node, ast.JoinedStr):
-                node_str = ast.unparse(node)
-                if any(keyword in node_str.upper() for keyword in sql_keywords):
-                    line = getattr(node, "lineno", 0)
-                    issues.append({
-                        "line": line,
-                        "code": node_str,
-                        "confidence": "medium"
-                    })
-            
-            # Check for string concatenation with SQL keywords
-            elif isinstance(node, ast.BinOp) and isinstance(node.op, ast.Add):
-                if (isinstance(node.left, ast.Str) or isinstance(node.right, ast.Str)):
-                    node_str = ast.unparse(node)
-                    if any(keyword in node_str.upper() for keyword in sql_keywords):
-                        line = getattr(node, "lineno", 0)
-                        issues.append({
-                            "line": line,
-                            "code": node_str,
-                            "confidence": "medium"
-                        })
-            
-            # Check for string formatting with SQL keywords
-            elif isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute):
-                if node.func.attr == "format" and isinstance(node.func.value, ast.Str) and any(keyword in node.func.value.s.upper() for keyword in sql_keywords):
-                    line = getattr(node, "lineno", 0)
-                    node_str = ast.unparse(node)
-                    issues.append({
-                        "line": line,
-                        "code": node_str,
-                        "confidence": "medium"
-                    })
-        
+                if issue := self._check_joined_str_for_sql_injection(
+                    node, sql_keywords
+                ):
+                    issues.append(issue)
+
+            elif isinstance(node, ast.BinOp):
+                if issue := self._check_binop_for_sql_injection(
+                    node, sql_keywords
+                ):
+                    issues.append(issue)
+
+            elif isinstance(node, ast.Call):
+                if issue := self._check_format_for_sql_injection(
+                    node, sql_keywords
+                ):
+                    issues.append(issue)
+
         return issues
     
+    def _check_os_command_injection(self, node: ast.Call) -> Optional[Dict]:
+        """
+        Check for command injection via os module functions.
+        
+        Args:
+            node: The AST call node to check.
+            
+        Returns:
+            Issue dictionary if vulnerability found, None otherwise.
+        """
+        if (isinstance(node.func, ast.Attribute) and 
+            isinstance(node.func.value, ast.Name) and 
+            node.func.value.id == "os" and 
+            node.func.attr in ["system", "popen"]):
+            
+            return self._create_security_issue(node)
+        return None
+    
+    def _check_subprocess_command_injection(self, node: ast.Call) -> Optional[Dict]:
+        """
+        Check for command injection via subprocess module functions with shell=True.
+        
+        Args:
+            node: The AST call node to check.
+            
+        Returns:
+            Issue dictionary if vulnerability found, None otherwise.
+        """
+        if (isinstance(node.func, ast.Attribute) and 
+            isinstance(node.func.value, ast.Name) and 
+            node.func.value.id == "subprocess" and 
+            node.func.attr in ["call", "run", "Popen"]):
+            
+            # Check for shell=True in kwargs
+            for keyword in node.keywords:
+                if (keyword.arg == "shell" and 
+                    isinstance(keyword.value, ast.Constant) and 
+                    keyword.value.value is True):
+                    
+                    return self._create_security_issue(node)
+        return None
+        
     def _check_command_injection(self, tree: ast.Module) -> List[Dict]:
         """
         Check for potential command injection vulnerabilities.
@@ -538,36 +700,89 @@ class SecurityScanner:
             List of issue dictionaries.
         """
         issues = []
-        
+
         # Look for os.system, os.popen, subprocess.call with shell=True
         for node in ast.walk(tree):
             if isinstance(node, ast.Call):
-                # Check for os.system or os.popen
-                if isinstance(node.func, ast.Attribute) and isinstance(node.func.value, ast.Name) and (node.func.value.id == "os" and node.func.attr in ["system", "popen"]):
-                    line = getattr(node, "lineno", 0)
-                    node_str = ast.unparse(node)
-                    issues.append({
-                        "line": line,
-                        "code": node_str,
-                        "confidence": "high"
-                    })
-                
-                # Check for subprocess.call, subprocess.run with shell=True
-                if isinstance(node.func, ast.Attribute) and isinstance(node.func.value, ast.Name) and (node.func.value.id == "subprocess" and 
-                                        node.func.attr in ["call", "run", "Popen"]):
-                    for keyword in node.keywords:
-                        if (keyword.arg == "shell" and 
-                            isinstance(keyword.value, ast.Constant) and 
-                            keyword.value.value is True):
-                            line = getattr(node, "lineno", 0)
-                            node_str = ast.unparse(node)
-                            issues.append({
-                                "line": line,
-                                "code": node_str,
-                                "confidence": "high"
-                            })
-        
+                if os_issue := self._check_os_command_injection(node):
+                    issues.append(os_issue)
+
+                if subprocess_issue := self._check_subprocess_command_injection(
+                    node
+                ):
+                    issues.append(subprocess_issue)
+
         return issues
+    
+    def _check_pickle_deserialization(self, node: ast.Call) -> Optional[Dict]:
+        """
+        Check for insecure pickle deserialization.
+        
+        Args:
+            node: The AST call node to check.
+            
+        Returns:
+            Issue dictionary if vulnerability found, None otherwise.
+        """
+        if (isinstance(node.func, ast.Attribute) and 
+            isinstance(node.func.value, ast.Name) and 
+            node.func.value.id == "pickle" and 
+            node.func.attr in ["loads", "load"]):
+            
+            return self._create_security_issue(node)
+        return None
+    
+    def _is_safe_yaml_loader_used(self, node: ast.Call) -> bool:
+        """
+        Check if a safe YAML loader is used.
+        
+        Args:
+            node: The AST call node to check.
+            
+        Returns:
+            True if a safe loader is used, False otherwise.
+        """
+        return any(
+            keyword.arg == "Loader"
+            and isinstance(keyword.value, ast.Attribute)
+            and hasattr(keyword.value, "attr")
+            and keyword.value.attr in ["SafeLoader", "CSafeLoader"]
+            for keyword in node.keywords
+        )
+    
+    def _check_yaml_deserialization(self, node: ast.Call) -> Optional[Dict]:
+        """
+        Check for insecure YAML deserialization.
+        
+        Args:
+            node: The AST call node to check.
+            
+        Returns:
+            Issue dictionary if vulnerability found, None otherwise.
+        """
+        if (isinstance(node.func, ast.Attribute) and 
+                    isinstance(node.func.value, ast.Name) and 
+                    node.func.value.id == "yaml" and 
+                    node.func.attr == "load") and not self._is_safe_yaml_loader_used(node):
+            return self._create_security_issue(node)
+        return None
+    
+    def _check_cryptography_usage(self, node: ast.Call) -> Optional[Dict]:
+        """
+        Check for potentially insecure cryptography usage.
+        
+        Args:
+            node: The AST call node to check.
+            
+        Returns:
+            Issue dictionary if vulnerability found, None otherwise.
+        """
+        if (isinstance(node.func, ast.Attribute) and 
+            isinstance(node.func.value, ast.Name) and 
+            node.func.value.id == "cryptography"):
+            
+            return self._create_security_issue(node)
+        return None
     
     def _check_insecure_deserialization(self, tree: ast.Module) -> List[Dict]:
         """
@@ -584,44 +799,87 @@ class SecurityScanner:
         # Look for pickle, marshal, yaml.load (without safe loader)
         for node in ast.walk(tree):
             if isinstance(node, ast.Call):
-                # Check for pickle.loads, pickle.load
-                if isinstance(node.func, ast.Attribute) and isinstance(node.func.value, ast.Name) and (node.func.value.id == "pickle" and node.func.attr in ["loads", "load"]):
-                    line = getattr(node, "lineno", 0)
-                    node_str = ast.unparse(node)
-                    issues.append({
-                        "line": line,
-                        "code": node_str,
-                        "confidence": "high"
-                    })
+                if pickle_issue := self._check_pickle_deserialization(node):
+                    issues.append(pickle_issue)
 
-                # Check for yaml.load without safe loader
-                if isinstance(node.func, ast.Attribute) and isinstance(node.func.value, ast.Name) and (node.func.value.id == "yaml" and node.func.attr == "load"):
-                    safe_loader_used = any(
-                        keyword.arg == "Loader"
-                        and isinstance(keyword.value, ast.Attribute)
-                        and hasattr(keyword.value, "attr")
-                        and keyword.value.attr in ["SafeLoader", "CSafeLoader"]
-                        for keyword in node.keywords
-                    )
-                    if not safe_loader_used:
-                        line = getattr(node, "lineno", 0)
-                        node_str = ast.unparse(node)
-                        issues.append({
-                            "line": line,
-                            "code": node_str,
-                            "confidence": "high"
-                        })
-                
-                # Check for cryptography
-                if isinstance(node.func, ast.Attribute) and isinstance(node.func.value, ast.Name) and (node.func.value.id == "cryptography"):
-                    node_str = ast.unparse(node)
-                    issues.append({
-                        "line": line,
-                        "code": node_str,
-                        "confidence": "high"
-                    })
+                if yaml_issue := self._check_yaml_deserialization(node):
+                    issues.append(yaml_issue)
+
+                if crypto_issue := self._check_cryptography_usage(node):
+                    issues.append(crypto_issue)
 
         return issues
+    
+    def _check_weak_hashlib(self, node: ast.Call) -> Optional[Dict]:
+        """
+        Check for weak hash algorithms in hashlib.
+        
+        Args:
+            node: The AST call node to check.
+            
+        Returns:
+            Issue dictionary if vulnerability found, None otherwise.
+        """
+        if (isinstance(node.func, ast.Attribute) and 
+            isinstance(node.func.value, ast.Name) and 
+            node.func.value.id == "hashlib" and 
+            node.func.attr in ["md5", "sha1"]):
+            
+            return self._create_security_issue(node)
+        return None
+
+    def _create_security_issue(self, node: ast.AST) -> Dict:
+        """
+        Create a security issue dictionary from an AST node.
+        
+        Args:
+            node: The AST node to create an issue for.
+            
+        Returns:
+            Dictionary with issue details.
+        """
+        line = getattr(node, "lineno", 0)
+        node_str = ast.unparse(node)
+        return {"line": line, "code": node_str, "confidence": "high"}
+    
+    def _contains_weak_crypto_algorithm(self, node_str: str) -> bool:
+        """
+        Check if a node contains weak cryptographic algorithms.
+        
+        Args:
+            node_str: String representation of the node.
+            
+        Returns:
+            True if weak algorithms are found, False otherwise.
+        """
+        weak_algos = ["DES", "RC4", "Blowfish", "ARC4"]
+        return any(algo in node_str for algo in weak_algos)
+    
+    def _check_weak_cryptography_lib(self, node: ast.Call) -> Optional[Dict]:
+        """
+        Check for deprecated ciphers in cryptography library.
+        
+        Args:
+            node: The AST call node to check.
+            
+        Returns:
+            Issue dictionary if vulnerability found, None otherwise.
+        """
+        if (isinstance(node.func, ast.Attribute) and 
+            isinstance(node.func.value, ast.Attribute) and 
+            hasattr(node.func.value, "value") and 
+            isinstance(node.func.value.value, ast.Name) and
+            node.func.value.value.id == "cryptography"):
+            
+            node_str = ast.unparse(node)
+            if self._contains_weak_crypto_algorithm(node_str):
+                line = getattr(node, "lineno", 0)
+                return {
+                    "line": line,
+                    "code": node_str,
+                    "confidence": "high"
+                }
+        return None
     
     def _check_weak_crypto(self, tree: ast.Module) -> List[Dict]:
         """
@@ -634,34 +892,16 @@ class SecurityScanner:
             List of issue dictionaries.
         """
         issues = []
-        
-        # Look for weak hash algorithms (md5, sha1)
+
+        # Look for weak hash algorithms and cryptographic methods
         for node in ast.walk(tree):
             if isinstance(node, ast.Call):
-                # Check for hashlib.md5, hashlib.sha1
-                if isinstance(node.func, ast.Attribute) and isinstance(node.func.value, ast.Name) and (node.func.value.id == "hashlib" and node.func.attr in ["md5", "sha1"]):
-                    line = getattr(node, "lineno", 0)
-                    node_str = ast.unparse(node)
-                    issues.append({
-                        "line": line,
-                        "code": node_str,
-                        "confidence": "high"
-                    })
-                
-                # Check for deprecated ciphers in cryptography library
-                if isinstance(node.func, ast.Attribute) and isinstance(node.func.value, ast.Attribute) and (hasattr(node.func.value, "value") and 
-                                        isinstance(node.func.value.value, ast.Name) and
-                                        node.func.value.value.id == "cryptography"):
-                    weak_algos = ["DES", "RC4", "Blowfish", "ARC4"]
-                    if any(algo in ast.unparse(node) for algo in weak_algos):
-                        line = getattr(node, "lineno", 0)
-                        node_str = ast.unparse(node)
-                        issues.append({
-                            "line": line,
-                            "code": node_str,
-                            "confidence": "high"
-                        })
-        
+                if hashlib_issue := self._check_weak_hashlib(node):
+                    issues.append(hashlib_issue)
+
+                if crypto_issue := self._check_weak_cryptography_lib(node):
+                    issues.append(crypto_issue)
+
         return issues
     
     def _filter_vulnerabilities_by_severity(self, vulnerabilities: List[Dict]) -> List[Dict]:
@@ -786,6 +1026,35 @@ class SecurityScanner:
         # Look for FastAPI imports in Python files
         return self._has_import_or_import_from("fastapi")
         
+    def _check_import_node(self, node: ast.AST, module_name: str) -> bool:
+        """
+        Check if an Import node imports the specified module.
+        
+        Args:
+            node: The AST node to check
+            module_name: Name of the module to check for
+            
+        Returns:
+            bool: True if the module is imported, False otherwise
+        """
+        if not isinstance(node, ast.Import):
+            return False
+
+        return any(name.name == module_name for name in node.names)
+    
+    def _check_import_from_node(self, node: ast.AST, module_name: str) -> bool:
+        """
+        Check if an ImportFrom node imports from the specified module.
+        
+        Args:
+            node: The AST node to check
+            module_name: Name of the module to check for
+            
+        Returns:
+            bool: True if the module is imported from, False otherwise
+        """
+        return isinstance(node, ast.ImportFrom) and node.module == module_name
+    
     def _has_import_or_import_from(self, module_name: str) -> bool:
         """
         Check if any file imports the specified module.
@@ -800,11 +1069,8 @@ class SecurityScanner:
             tree = self._ast_cache[file_path]
             
             for node in ast.walk(tree):
-                if isinstance(node, ast.Import):
-                    for name in node.names:
-                        if name.name == module_name:
-                            return True
-                elif isinstance(node, ast.ImportFrom) and node.module == module_name:
+                if self._check_import_node(node, module_name) or \
+                   self._check_import_from_node(node, module_name):
                     return True
         
         return False

@@ -48,6 +48,9 @@ class TaskManager:
             {})
         }
 
+        # Constants
+        self.WARNING_DISABLED = "Task manager is disabled. Enabling for this run."
+
         # Tasks storage
         self._tasks = []
         self._task_file_path = self.project_path / self.settings["task_file"]
@@ -71,7 +74,7 @@ class TaskManager:
             Dictionary with task generation results.
         """
         if not self.enabled:
-            self.logger.warning("Task manager is disabled. Enabling for this run.")
+            self.logger.warning(self.WARNING_DISABLED)
             self.enable()
 
         self.logger.info("Generating task list")
@@ -139,7 +142,7 @@ class TaskManager:
             The created task.
         """
         if not self.enabled:
-            self.logger.warning("Task manager is disabled. Enabling for this run.")
+            self.logger.warning(self.WARNING_DISABLED)
             self.enable()
 
         # Set default priority if not provided
@@ -188,7 +191,7 @@ class TaskManager:
             Updated task or None if task not found.
         """
         if not self.enabled:
-            self.logger.warning("Task manager is disabled. Enabling for this run.")
+            self.logger.warning(self.WARNING_DISABLED)
             self.enable()
 
         # Find task
@@ -244,7 +247,7 @@ class TaskManager:
             List of tasks matching the criteria.
         """
         if not self.enabled:
-            self.logger.warning("Task manager is disabled. Enabling for this run.")
+            self.logger.warning(self.WARNING_DISABLED)
             self.enable()
 
         # Start with all tasks
@@ -276,7 +279,7 @@ class TaskManager:
             Task dictionary or None if not found.
         """
         if not self.enabled:
-            self.logger.warning("Task manager is disabled. Enabling for this run.")
+            self.logger.warning(self.WARNING_DISABLED)
             self.enable()
 
         return next((t for t in self._tasks if t["id"] == task_id), None)
@@ -293,7 +296,7 @@ class TaskManager:
             Updated task or None if task not found.
         """
         if not self.enabled:
-            self.logger.warning("Task manager is disabled. Enabling for this run.")
+            self.logger.warning(self.WARNING_DISABLED)
             self.enable()
 
         # Update task
@@ -318,7 +321,7 @@ class TaskManager:
             Updated task or None if task not found.
         """
         if not self.enabled:
-            self.logger.warning("Task manager is disabled. Enabling for this run.")
+            self.logger.warning(self.WARNING_DISABLED)
             self.enable()
 
         # Get current task
@@ -412,11 +415,10 @@ class TaskManager:
 
                 updated_tasks.append(existing_task)
             else:
-                self._extracted_from__merge_tasks_59(new_task, updated_tasks)
+                self._task_handler(new_task, updated_tasks)
         return updated_tasks
 
-    # TODO Rename this here and in `_merge_tasks`
-    def _extracted_from__merge_tasks_59(self, new_task, updated_tasks):
+    def _task_handler(self, new_task, updated_tasks):
         # Add new task with generated ID
         new_task["id"] = self._generate_task_id()
         new_task["created_date"] = self._get_current_datetime()

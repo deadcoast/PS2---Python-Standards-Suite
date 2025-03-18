@@ -5,8 +5,10 @@ This module provides the 'analyze' command for the PS2 CLI, allowing users
 to perform comprehensive codebase analysis from the command line.
 """
 
-from typing import (  # TODO: Remove unused imports; TODO: Remove unused imports  # TODO: Remove unused imports
-    Any, Dict, Optional)
+import argparse
+import sys
+import traceback
+from typing import Any
 
 from ps2.cli.helpers.formatting import format_result, output_formats
 
@@ -41,22 +43,13 @@ class AnalyzeCommand:
             "--output-file", "-f", help="Output file path (default: stdout)"
         )
         parser.add_argument(
-            "--modules", "-m", action = """
-                store_true", help="Analyze module structure
-            """
-            "--complexity", "-c", action = """
-                store_true", help="Analyze code complexity
-            """
-            "--dependencies", "-d", action = """
-                store_true", help="Analyze dependencies
-        parser.add_argument("--all",
-            "-a",
-            action="store_true",
-            help="Run all analyses")
-            "--complexity", "-c", action="store_true", help="Analyze code complexity"
+            "--modules", "-m", action = "store_true", help="Analyze module structure"
         )
         parser.add_argument(
-            "--dependencies", "-d", action="store_true", help="Analyze dependencies"
+            "--complexity", "-c", action = "store_true", help="Analyze code complexity"
+        )
+        parser.add_argument(
+            "--dependencies", "-d", action = "store_true", help="Analyze dependencies"
         )
         parser.add_argument("--all", "-a", action="store_true", help="Run all analyses")
 
@@ -100,7 +93,6 @@ class AnalyzeCommand:
         except Exception as e:
             print(f"Error analyzing codebase: {e}", file=sys.stderr)
             if args.verbose:
-
                 traceback.print_exc()
             return 1
 
@@ -115,7 +107,4 @@ class AnalyzeCommand:
             print(output)
 
         # Return appropriate exit code
-        if result.get("status") in ["pass", "fixed", "info"]:
-            return 0
-        else:
-            return 1
+        return 0 if result.get("status") in ["pass", "fixed", "info"] else 1

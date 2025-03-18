@@ -4,9 +4,12 @@ Validation Helper Module for PS2 CLI.
 This module provides helper functions for validating user input in the PS2 CLI.
 """
 
+import re
+from pathlib import Path
+import os
 
-from typing import (  # TODO: Remove unused imports; TODO: Remove unused imports  # TODO: Remove unused imports
-    Any, List, Optional, Tuple)
+from typing import Tuple
+
 
 """
     Validate a project name.
@@ -17,47 +20,54 @@ from typing import (  # TODO: Remove unused imports; TODO: Remove unused imports
     Returns:
         Tuple of (is_valid, message).
     """
+def validate_project_name(name: str) -> Tuple[bool, str]:
     # Check if name is valid Python package name
-if not re.match(r"^[a-zA-Z][a-zA-Z0-9_]*$", name):
-    pass
-# Check if name is not a Python reserved word
-python_keywords = {
-    "False",
-    "None",
-    "True",
-    "and",
-    "as",
-    "assert",
-    "async",
-    "await",
-    "break",
-    "class",
-    "continue",
-    "def",
-    "del",
-    "elif",
-    "else",
-    "except",
-    "finally",
-    "for",
-    "from",
-    "global",
-    "if",
-    "import",
-    "in",
-    "is",
-    "lambda",
-    "nonlocal",
-    "not",
-    "or",
-    "pass",
-    "raise",
-    "return",
-    "try",
-    "while",
-    "with",
-    "yield",
-}
+    if not re.match(r"^[a-zA-Z]\w*$", name):
+        return False, f"Invalid project name: {name}"
+
+    # Check if name is not a Python reserved word
+    python_keywords = {
+        "False",
+        "None",
+        "True",
+        "and",
+        "as",
+        "assert",
+        "async",
+        "await",
+        "break",
+        "class",
+        "continue",
+        "def",
+        "del",
+        "elif",
+        "else",
+        "except",
+        "finally",
+        "for",
+        "from",
+        "global",
+        "if",
+        "import",
+        "in",
+        "is",
+        "lambda",
+        "nonlocal",
+        "not",
+        "or",
+        "pass",
+        "raise",
+        "return",
+        "try",
+        "while",
+        "with",
+        "yield",
+    }
+
+    if name in python_keywords:
+        return False, f"Invalid project name: {name} (reserved keyword)"
+
+    return True, "Project name is valid"
 
 
 def validate_project_path(path: str) -> Tuple[bool, str]:
@@ -119,8 +129,7 @@ def validate_email(email: str) -> Tuple[bool, str]:
         return True, "Email is optional"
 
     # Simple email validation regex
-    if not re.match(r"^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$",
-        email)
+    if not re.match(r"^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$", email):
         return False, f"Invalid email format: {email}"
 
     return True, "Email is valid"

@@ -462,20 +462,9 @@ class PerformanceMonitor:
 
         return issues
 
-    def _check_expensive_operations_in_loops(self, tree: ast.Module) -> List[Dict]:
-        """
-        Check for expensive operations inside loops.
-
-        Args:
-            tree: AST of the module to check.
-
-        Returns:
-            List of expensive operation issues.
-        """
-        issues = []
-
-        # Define expensive operations to look for in loops
-        expensive_operations = {
+    def _get_expensive_operations(self) -> Dict[str, str]:
+        """Return a dictionary of expensive operations and their descriptions."""
+        return {
             # File operations
             "open": "File operation inside a loop",
             "read": "File reading inside a loop",
@@ -500,46 +489,119 @@ class PerformanceMonitor:
             "match": "Regex matching inside a loop",
             "search": "Regex searching inside a loop",
         }
+    
+    def _extract_function_name(self, node: ast.Call) -> Optional[str]:
+        """Extract the function name from a Call node."""
+        if isinstance(node.func, ast.Name):
+            return node.func.id
+        elif isinstance(node.func, ast.Attribute):
+            return node.func.attr
+        return None
+    
+    def _get_code_at_line_from_tree(self, tree: ast.Module, line: int, default_msg: str) -> str:
+        """Get the code at a specific line from the source tree."""
+        if hasattr(tree, "source_code"):
+            code_lines = tree.source_code.splitlines()
+            if line <= len(code_lines):
+                return code_lines[line - 1].strip()
+        return default_msg
+    
+    def _check_call_in_loop(self, loop_node: ast.AST, expensive_operations: Dict[str, str], tree: ast.Module) -> List[Dict]:
+        """Check for expensive function calls within a loop node."""
+        issues = []
+        loop_line = getattr(loop_node, "lineno", 0)
+        
+        for body_node in ast.walk(loop_node):
+            if not isinstance(body_node, ast.Call):
+                continue
+                
+            func_name = self._extract_function_name(body_node)
+            if not func_name or func_name not in expensive_operations:
+                continue
+                
+            line = getattr(body_node, "lineno", loop_line)
+            code = self._get_code_at_line_from_tree(
+                tree, line, f"Operation at line {line}"
+            )
+            
+            issues.append({
+                "line": line,
+                "code": code,
+                "suggestion": f"{expensive_operations[func_name]}. Consider moving outside the loop or finding a more efficient approach.",
+            })
+            
+        return issues
+    
+    def _check_expensive_operations_in_loops(self, tree: ast.Module) -> List[Dict]:
+        """
+        Check for expensive operations inside loops.
+
+        Args:
+            tree: AST of the module to check.
+
+        Returns:
+            List of expensive operation issues.
+        """
+        issues = []
+        expensive_operations = self._get_expensive_operations()
 
         # Find all loops
         for node in ast.walk(tree):
             if isinstance(node, (ast.For, ast.While)):
-                loop_line = getattr(node, "lineno", 0)
-
-                # Check for expensive operations in loop body
-                for body_node in ast.walk(node):
-                    if isinstance(body_node, ast.Call):
-                        # Check if the function name is expensive
-                        func_name = None
-
-                        if isinstance(body_node.func, ast.Name):
-                            func_name = body_node.func.id
-                        elif isinstance(body_node.func, ast.Attribute):
-                            func_name = body_node.func.attr
-
-                        if func_name and func_name in expensive_operations:
-                            line = getattr(body_node, "lineno", loop_line)
-
-                            # Get the code line
-                            if hasattr(tree, "source_code"):
-                                code_lines = tree.source_code.splitlines()
-                                if line <= len(code_lines):
-                                    code = code_lines[line - 1].strip()
-                                else:
-                                    code = f"Operation at line {line}"
-                            else:
-                                code = f"Operation at line {line}"
-
-                            issues.append(
-                                {
-                                    "line": line,
-                                    "code": code,
-                                    "suggestion": f"{expensive_operations[func_name]}. Consider moving outside the loop or finding a more efficient approach.",
-                                }
-                            )
+                issues.extend(self._check_call_in_loop(node, expensive_operations, tree))
 
         return issues
 
+    def _check_growing_collections_in_loops(self, tree: ast.Module) -> List[Dict]:
+        """Check for collections that grow inside loops."""
+        issues = []
+        
+        for node in ast.walk(tree):
+            if not isinstance(node, ast.For):
+                continue
+                
+            # Look for collections that grow inside loops
+            growing_collections = self._find_growing_collections(node)
+            
+            for growing_node, collection_name in growing_collections:
+                line = getattr(growing_node, "lineno", 0)
+                code = self._get_code_at_line_from_tree(
+                    tree, line, f"Operation at line {line}"
+                )
+                
+                issues.append({
+                    "line": line,
+                    "code": code,
+                    "suggestion": f"Collection '{collection_name}' grows inside a loop. Consider using a more memory-efficient approach or preallocating if size is known.",
+                })
+                
+        return issues
+    
+    def _check_file_context_managers(self, tree: ast.Module) -> List[Dict]:
+        """Check for file operations without context managers."""
+        issues = []
+        
+        for node in ast.walk(tree):
+            # Skip if not a call to open() or if it's in a with statement
+            if not isinstance(node, ast.Call) or not isinstance(node.func, ast.Name):
+                continue
+                
+            if node.func.id != "open" or self._is_in_with_statement(node):
+                continue
+                
+            line = getattr(node, "lineno", 0)
+            code = self._get_code_at_line_from_tree(
+                tree, line, f"Operation at line {line}"
+            )
+            
+            issues.append({
+                "line": line,
+                "code": code,
+                "suggestion": "File opened without context manager (with statement). This might lead to unclosed file handles.",
+            })
+            
+        return issues
+    
     def _check_memory_leaks(self, tree: ast.Module) -> List[Dict]:
         """
         Check for patterns that could lead to memory leaks.
@@ -551,62 +613,13 @@ class PerformanceMonitor:
             List of potential memory leak issues.
         """
         issues = []
-
-        # Identify patterns that could lead to memory issues
-
+        
         # Check for large data structures that grow in loops
-        for node in ast.walk(tree):
-            if isinstance(node, ast.For):
-                # Look for collections that grow inside loops
-                growing_collections = self._find_growing_collections(node)
-
-                for growing_node, collection_name in growing_collections:
-                    line = getattr(growing_node, "lineno", 0)
-
-                    # Get the code line
-                    if hasattr(tree, "source_code"):
-                        code_lines = tree.source_code.splitlines()
-                        if line <= len(code_lines):
-                            code = code_lines[line - 1].strip()
-                        else:
-                            code = f"Operation at line {line}"
-
-                    issues.append(
-                        {
-                            "line": line,
-                            "code": code,
-                            "suggestion": f"Collection '{collection_name}' grows inside a loop. Consider using a more memory-efficient approach or preallocating if size is known.",
-                        }
-                    )
-
+        issues.extend(self._check_growing_collections_in_loops(tree))
+        
         # Check for lack of context managers with file handling
-        for node in ast.walk(tree):
-            if (
-                isinstance(node, ast.Call)
-                and isinstance(node.func, ast.Name)
-                and node.func.id == "open"
-                and not self._is_in_with_statement(node)
-            ):
-                line = getattr(node, "lineno", 0)
-
-                # Get the code line
-                if hasattr(tree, "source_code"):
-                    code_lines = tree.source_code.splitlines()
-                    if line <= len(code_lines):
-                        code = code_lines[line - 1].strip()
-                    else:
-                        code = f"Operation at line {line}"
-                else:
-                    code = f"Operation at line {line}"
-
-                issues.append(
-                    {
-                        "line": line,
-                        "code": code,
-                        "suggestion": "File opened without context manager (with statement). This might lead to unclosed file handles.",
-                    }
-                )
-
+        issues.extend(self._check_file_context_managers(tree))
+        
         return issues
 
     def _find_growing_collections(
@@ -668,6 +681,70 @@ class PerformanceMonitor:
             # For now, return a conservative result to avoid false positives
             return False
 
+    def _is_list_type(self, node: ast.AST) -> bool:
+        """Check if a node represents a list type."""
+        if isinstance(node, ast.Name):
+            return True  # Could be a list variable
+
+        return (
+            isinstance(node, ast.Call)
+            and isinstance(node.func, ast.Name)
+            and node.func.id == "list"
+        )
+    
+    def _check_inefficient_in_operations(self, tree: ast.Module) -> List[Dict]:
+        """Check for inefficient 'in' operations on lists."""
+        issues = []
+        
+        for node in ast.walk(tree):
+            # Skip if not a compare operation with 'in'
+            if not isinstance(node, ast.Compare) or not any(isinstance(op, ast.In) for op in node.ops):
+                continue
+                
+            # Check if the right side of "in" is a list
+            for comparator in node.comparators:
+                if not self._is_list_type(comparator):
+                    continue
+                    
+                line = getattr(node, "lineno", 0)
+                code = self._get_code_at_line_from_tree(
+                    tree, line, f"Operation at line {line}"
+                )
+                
+                issues.append({
+                    "line": line,
+                    "code": code,
+                    "suggestion": "Using 'in' operator with a list can be inefficient for large collections. Consider using a set or dictionary for O(1) lookups.",
+                })
+                
+        return issues
+    
+    def _check_list_concatenation(self, tree: ast.Module) -> List[Dict]:
+        """Check for inefficient list concatenation."""
+        issues = []
+        
+        for node in ast.walk(tree):
+            # Skip if not a binary operation with '+'
+            if not isinstance(node, ast.BinOp) or not isinstance(node.op, ast.Add):
+                continue
+                
+            # Check if either side is a list
+            if not (isinstance(node.left, ast.List) or isinstance(node.right, ast.List)):
+                continue
+                
+            line = getattr(node, "lineno", 0)
+            code = self._get_code_at_line_from_tree(
+                tree, line, f"Operation at line {line}"
+            )
+            
+            issues.append({
+                "line": line,
+                "code": code,
+                "suggestion": "List concatenation can be inefficient, especially in loops. Consider using list.extend() or a list comprehension.",
+            })
+            
+        return issues
+    
     def _check_inefficient_data_structures(self, tree: ast.Module) -> List[Dict]:
         """
         Check for inefficient data structure usage.
@@ -679,84 +756,18 @@ class PerformanceMonitor:
             List of data structure issues.
         """
         issues = []
-
-        # Look for inefficient list operations like "in" for large lists
-        for node in ast.walk(tree):
-            if isinstance(node, ast.Compare) and any(
-                isinstance(op, ast.In) for op in node.ops
-            ):
-                # Check if the right side of "in" is a list
-                for comparator in node.comparators:
-                    if isinstance(comparator, ast.Name) or (
-                        isinstance(comparator, ast.Call)
-                        and isinstance(comparator.func, ast.Name)
-                        and comparator.func.id == "list"
-                    ):
-
-                        line = getattr(node, "lineno", 0)
-
-                        # Get the code line
-                        if hasattr(tree, "source_code"):
-                            code_lines = tree.source_code.splitlines()
-                            if line <= len(code_lines):
-                                code = code_lines[line - 1].strip()
-                            else:
-                                code = f"Operation at line {line}"
-                        else:
-                            code = f"Operation at line {line}"
-
-                        issues.append(
-                            {
-                                "line": line,
-                                "code": code,
-                                "suggestion": "Using 'in' operator with a list can be inefficient for large collections. Consider using a set or dictionary for O(1) lookups.",
-                            }
-                        )
-
-        # Look for repeated list concatenation
-        for node in ast.walk(tree):
-            if (
-                isinstance(node, ast.BinOp)
-                and isinstance(node.op, ast.Add)
-                and (
-                    isinstance(node.left, ast.List) or isinstance(node.right, ast.List)
-                )
-            ):
-                line = getattr(node, "lineno", 0)
-
-                # Get the code line
-                if hasattr(tree, "source_code"):
-                    code_lines = tree.source_code.splitlines()
-                    if line <= len(code_lines):
-                        code = code_lines[line - 1].strip()
-                    else:
-                        code = f"Operation at line {line}"
-                else:
-                    code = f"Operation at line {line}"
-
-                issues.append(
-                    {
-                        "code": code,
-                        "suggestion": "List concatenation can be inefficient, especially in loops. Consider using list.extend() or a list comprehension.",
-                    }
-                )
-
+        
+        # Check for inefficient 'in' operations on lists
+        issues.extend(self._check_inefficient_in_operations(tree))
+        
+        # Check for inefficient list concatenation
+        issues.extend(self._check_list_concatenation(tree))
+        
         return issues
 
-    def _check_expensive_function_calls(self, tree: ast.Module) -> List[Dict]:
-        """
-        Check for repeated expensive function calls.
-
-        Args:
-            tree: AST of the module to check.
-
-        Returns:
-            List of expensive function call issues.
-        """
-        issues = []
-
-        # Identify functions commonly regarded as expensive
-        expensive_functions = [
+    def _get_expensive_functions(self) -> List[str]:
+        """Return a list of commonly expensive function names."""
+        return [
             "sorted",
             "re.compile",
             "json.loads",
@@ -770,56 +781,87 @@ class PerformanceMonitor:
             "df.apply",
             "df.iterrows",
         ]
-
-        # Find repeated calls to expensive functions
+    
+    def _get_function_name(self, node: ast.Call) -> Optional[str]:
+        """Extract the full function name from a Call node."""
+        if isinstance(node.func, ast.Name):
+            return node.func.id
+            
+        if isinstance(node.func, ast.Attribute) and isinstance(node.func.value, ast.Name):
+            return f"{node.func.value.id}.{node.func.attr}"
+            
+        return None
+    
+    def _collect_expensive_function_calls(self, tree: ast.Module) -> Dict[str, List[int]]:
+        """Collect all expensive function calls in the AST."""
         function_calls = {}
-
+        expensive_functions = self._get_expensive_functions()
+        
         for node in ast.walk(tree):
-            if isinstance(node, ast.Call):
-                func_name = None
+            if not isinstance(node, ast.Call):
+                continue
+                
+            func_name = self._get_function_name(node)
+            if not func_name:
+                continue
+                
+            # Check if this is an expensive function
+            for exp_func in expensive_functions:
+                if exp_func in func_name or func_name in exp_func:
+                    line = getattr(node, "lineno", 0)
+                    if func_name not in function_calls:
+                        function_calls[func_name] = []
+                    function_calls[func_name].append(line)
+                    break  # Found a match, no need to check other expensive functions
+                    
+        return function_calls
+    
+    def _check_if_calls_in_loop(self, tree: ast.Module, call_lines: List[int]) -> bool:
+        """Check if any of the function calls are inside a loop."""
+        for node in ast.walk(tree):
+            if not isinstance(node, (ast.For, ast.While)):
+                continue
+                
+            loop_lines = {getattr(n, "lineno", 0) for n in ast.walk(node)}
+            if any(line in loop_lines for line in call_lines):
+                return True
+                
+        return False
+    
+    def _check_expensive_function_calls(self, tree: ast.Module) -> List[Dict]:
+        """
+        Check for repeated expensive function calls.
 
-                if isinstance(node.func, ast.Name):
-                    func_name = node.func.id
-                elif isinstance(node.func, ast.Attribute):
-                    if isinstance(node.func.value, ast.Name):
-                        func_name = f"{node.func.value.id}.{node.func.attr}"
+        Args:
+            tree: AST of the module to check.
 
-                if func_name:
-                    # Check if this is an expensive function
-                    for exp_func in expensive_functions:
-                        if exp_func in func_name or func_name in exp_func:
-                            line = getattr(node, "lineno", 0)
-                            if func_name not in function_calls:
-                                function_calls[func_name] = []
-                            function_calls[func_name].append(line)
-
+        Returns:
+            List of expensive function call issues.
+        """
+        issues = []
+        function_calls = self._collect_expensive_function_calls(tree)
+        
         # Check for repeated calls
         for func_name, lines in function_calls.items():
-            if len(lines) > 1:
-                # Find calls inside loops, which would be more problematic
-                is_in_loop = False
-                for node in ast.walk(tree):
-                    if isinstance(node, (ast.For, ast.While)):
-                        loop_lines = {getattr(n, "lineno", 0) for n in ast.walk(node)}
-                        if any(line in loop_lines for line in lines):
-                            is_in_loop = True
-                            break
-
-                if is_in_loop:
-                    severity_msg = " inside loops"
-                    extra_suggestion = " Consider moving the call outside the loop or caching its result."
-                else:
-                    severity_msg = ""
-                    extra_suggestion = " Consider caching its result if called repeatedly with the same arguments."
-
-                issues.append(
-                    {
-                        "line": lines[0],  # Report the first occurrence
-                        "code": f"Call to {func_name}",
-                        "suggestion": f"Found {len(lines)} calls to expensive function '{func_name}'{severity_msg}.{extra_suggestion}",
-                    }
-                )
-
+            if len(lines) <= 1:
+                continue  # Skip if only called once
+                
+            # Find calls inside loops, which would be more problematic
+            is_in_loop = self._check_if_calls_in_loop(tree, lines)
+            
+            if is_in_loop:
+                severity_msg = " inside loops"
+                extra_suggestion = " Consider moving the call outside the loop or caching its result."
+            else:
+                severity_msg = ""
+                extra_suggestion = " Consider caching its result if called repeatedly with the same arguments."
+            
+            issues.append({
+                "line": lines[0],  # Report the first occurrence
+                "code": f"Call to {func_name}",
+                "suggestion": f"Found {len(lines)} calls to expensive function '{func_name}'{severity_msg}.{extra_suggestion}",
+            })
+            
         return issues
 
     def _profile_entry_points(self) -> Dict:

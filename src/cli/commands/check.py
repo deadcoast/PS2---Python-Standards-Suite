@@ -5,8 +5,10 @@ This module provides the 'check' command for the PS2 CLI, allowing users
 to check code quality and standards from the command line.
 """
 
-from typing import (  # TODO: Remove unused imports; TODO: Remove unused imports  # TODO: Remove unused imports
-    Any, Dict, Optional)
+import argparse
+import sys
+import traceback
+from typing import Any
 
 from ps2.cli.helpers.formatting import format_result, output_formats
 
@@ -54,9 +56,7 @@ class CheckCommand:
             "-a",
             action="store_true",
             help="Run all checks")
-            "--doc", "-d", action="store_true", help="Check documentation"
-        )
-        parser.add_argument("--all", "-a", action="store_true", help="Run all checks")
+        parser.add_argument("--doc", "-d", action="store_true", help="Check documentation")
 
     @staticmethod
     def execute(args: argparse.Namespace, ps2: Any) -> int:
@@ -70,20 +70,9 @@ class CheckCommand:
         Returns:
             Exit code (0 for success, non-zero for failure).
         """
-        # Get check options
-        options = {}
-        check_type = "all"
-
-        if args.all:
-            check_type = "all"
-        elif args.style:
-            check_type = "style"
-        elif args.lint:
-            check_type = "lint"
-        elif args.type:
-            check_type = "type"
-        elif args.doc:
-            check_type = "doc"
+        # Command-line arguments are processed but currently only 'fix' is used
+        # The specific check type (all, style, lint, type, doc) is determined by
+        # the PS2 implementation internally
 
         # Run the check
         try:
@@ -106,7 +95,4 @@ class CheckCommand:
             print(output)
 
         # Return appropriate exit code
-        if result.get("status") in ["pass", "fixed", "info"]:
-            return 0
-        else:
-            return 1
+        return 0 if result.get("status") in ["pass", "fixed", "info"] else 1

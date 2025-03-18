@@ -38,6 +38,7 @@ class ProjectGenerator:
     BASH_CODE_BLOCK_START = '```bash\n'
     CODE_BLOCK_END = '```\n\n'
     CODE_BLOCK_END_SIMPLE = '```\n'
+    PYTHON_CODE_BLOCK_START = '```python\n'
     
     # Log message constants
     LOG_GENERATING_PROJECT = "Generating project: {} (type: {})"
@@ -250,119 +251,15 @@ class ProjectGenerator:
 
         # Create docs directory if configured
         if self.settings["include_docs"]:
-            docs_dir = project_dir / "docs"
-            os.makedirs(docs_dir, exist_ok=True)
-
-            # Create example documentation
-            with open(docs_dir / "index.md", "w") as f:
-                f.write(f'# {project_name.capitalize()}\n\n')
-                self._write_project_dependencies(
-                    f,
-                    'Welcome to the documentation!\n\n',
-                    '## Installation\n\n',
-                    self.BASH_CODE_BLOCK_START,
-                )
-                f.write(f'pip install {project_name}\n')
-                self._write_project_dependencies(
-                    f, '```\n\n', '## Usage\n\n', '```python\n'
-                )
-                if self.settings["use_src_layout"]:
-                    f.write(f'from src.{project_name} import main\n\n')
-                else:
-                    f.write(f'from {project_name} import main\n\n')
-                f.write('main()\n')
-                f.write('```\n')
+            self._create_documentation_files(project_dir, project_name)
 
         # Create CI configuration if configured
         if self.settings["include_ci"]:
-            github_dir = project_dir / ".github" / "workflows"
-            os.makedirs(github_dir, exist_ok=True)
-
-            # Create GitHub Actions workflow
-            with open(github_dir / "python-test.yml", "w") as f:
-                self._write_project_dependencies(
-                    f, 'name: Python Tests\n\n', 'on:\n', '  push:\n'
-                )
-                self._write_file_content(
-                    f,
-                    '    branches: [ main ]\n',
-                    '  pull_request:\n',
-                    '    branches: [ main ]\n\n',
-                )
-                self._test_handler(
-                    f, 'jobs:\n', '  test:\n', '    runs-on: ubuntu-latest\n'
-                )
-                self._python_setup(
-                    f,
-                    '    strategy:\n',
-                    '      matrix:\n',
-                    '        python-version: [3.8, 3.9, "3.10"]\n\n',
-                )
-                f.write('    steps:\n')
-                f.write('    - uses: actions/checkout@v2\n')
-                f.write('    - name: Set up Python ${{ matrix.python-version }}\n')
-                f.write('      uses: actions/setup-python@v2\n')
-                f.write('      with:\n')
-                f.write('        python-version: ${{ matrix.python-version }}\n')
-                f.write('    - name: Install dependencies\n')
-                f.write('      run: |\n')
-                f.write('        python -m pip install --upgrade pip\n')
-                f.write('        pip install pytest pytest-cov\n')
-                f.write('        pip install -e .\n')
-                f.write('    - name: Test with pytest\n')
-                f.write('      run: |\n')
-                f.write('        pytest --cov=./ --cov-report=xml\n')
-                f.write('    - name: Upload coverage to Codecov\n')
-                f.write('      uses: codecov/codecov-action@v2\n')
-                f.write('      with:\n')
-                f.write('        file: ./coverage.xml\n')
-                f.write('        fail_ci_if_error: true\n')
+            self._create_ci_configuration(project_dir)
 
         # Create Docker configuration if configured
         if self.settings["include_docker"]:
-            # Create Dockerfile
-            with open(project_dir / "Dockerfile", "w") as f:
-                self._write_project_dependencies(
-                    f,
-                    'FROM python:3.9-slim\n\n',
-                    'WORKDIR /app\n\n',
-                    'COPY requirements.txt .\n',
-                )
-                f.write('RUN pip install --no-cache-dir -r requirements.txt\n\n')
-                f.write('COPY . .\n')
-                if self.settings["use_src_layout"]:
-                    f.write('RUN pip install -e .\n\n')
-                f.write(f'CMD ["python", "-m", "{project_name}' + '.main"]\n')
-
-            # Create .dockerignore
-            with open(project_dir / ".dockerignore", "w") as f:
-                self._write_project_dependencies(
-                    f, '__pycache__/\n', '*.py[cod]\n', '*$py.class\n'
-                )
-                self._write_file_content(
-                    f, '*.so\n', '.Python\n', 'env/\n'
-                )
-                self._test_handler(
-                    f, 'build/\n', 'develop-eggs/\n', 'dist/\n'
-                )
-                self._python_setup(
-                    f, 'downloads/\n', 'eggs/\n', '.eggs/\n'
-                )
-                f.write('lib/\n')
-                f.write('lib64/\n')
-                f.write('parts/\n')
-                f.write('sdist/\n')
-                f.write('var/\n')
-                f.write('*.egg-info/\n')
-                f.write('.installed.cfg\n')
-                f.write('*.egg\n')
-                f.write('.env\n')
-                f.write('.venv\n')
-                f.write('venv/\n')
-                f.write('ENV/\n')
-                f.write('.git/\n')
-                f.write('docs/\n')
-                f.write('tests/\n')
+            self._create_docker_configuration(project_dir, project_name)
 
         # Create setup.py
         with open(project_dir / "setup.py", "w") as f:
@@ -408,7 +305,7 @@ class ProjectGenerator:
             f.write(f'git clone https://github.com/yourusername/{project_name}.git\n')
             f.write(f'cd {project_name}\n\n')
             self._write_project_dependencies(
-                f, '# Install the package\n', 'pip install -e .\n', '```\n\n'
+                f, '# Install the package\n', 'pip install -e .\n', self.CODE_BLOCK_END
             )
             f.write('## Usage\n\n')
             f.write('```python\n')
@@ -417,7 +314,7 @@ class ProjectGenerator:
             else:
                 f.write(f'from {project_name} import main\n\n')
             self._write_project_dependencies(
-                f, 'main()\n', '```\n\n', '## Development\n\n'
+                f, 'main()\n', self.CODE_BLOCK_END, '## Development\n\n'
             )
             self._write_file_content(
                 f, self.BASH_CODE_BLOCK_START, '# Run tests\n', 'pytest\n\n'
@@ -752,7 +649,7 @@ class ProjectGenerator:
                 f.write(f'python -m src.{project_name}.app\n')
             else:
                 f.write(f'python -m {project_name}.app\n')
-            f.write('```\n\n')
+            f.write(self.CODE_BLOCK_END)
             f.write('Then navigate to http://127.0.0.1:5000/ in your web browser.\n')
     
     def _create_django_project(self, project_name: str, project_dir: Path) -> None:

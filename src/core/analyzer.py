@@ -384,6 +384,32 @@ class CodeAnalyzer:
         """
         return func.name
 
+    def _count_control_structures(self, node: ast.AST) -> int:
+        """
+        Count control structures that add to cyclomatic complexity.
+        
+        Args:
+            node: AST node to check
+            
+        Returns:
+            Complexity increment for this node
+        """
+        if isinstance(node, (ast.If, ast.While, ast.For, ast.And, ast.Or, ast.ExceptHandler)):
+            return 1
+        return 0
+    
+    def _count_boolean_operations(self, node: ast.AST) -> int:
+        """
+        Count boolean operations that add to cyclomatic complexity.
+        
+        Args:
+            node: AST node to check
+            
+        Returns:
+            Complexity increment for boolean operations
+        """
+        return len(node.values) - 1 if isinstance(node, ast.BoolOp) else 0
+        
     def _calculate_cyclomatic_complexity(self, func: ast.FunctionDef) -> int:
         """
         Calculate cyclomatic complexity for a function.
@@ -396,17 +422,47 @@ class CodeAnalyzer:
         """
         complexity = 1  # Base complexity
 
-        # Increment for each control structure
+        # Increment for each control structure and boolean operation
         for node in ast.walk(func):
-            if isinstance(node, (ast.If, ast.While, ast.For, ast.And, ast.Or)):
-                complexity += 1
-            elif isinstance(node, ast.ExceptHandler):
-                complexity += 1
-            elif isinstance(node, ast.BoolOp):
-                # Add complexity for each boolean operation
-                complexity += len(node.values) - 1
+            complexity += self._count_control_structures(node)
+            complexity += self._count_boolean_operations(node)
 
         return complexity
+
+    def _count_file_lines(self, file_path: Path) -> tuple[int, int]:
+        """
+        Count total lines and comment lines in a file.
+        
+        Args:
+            file_path: Path to the file
+            
+        Returns:
+            Tuple of (total_lines, comment_lines)
+            
+        Raises:
+            IOError: If the file cannot be read
+            UnicodeDecodeError: If the file encoding is invalid
+        """
+        with open(file_path, "r", encoding="utf-8") as f:
+            source_lines = f.readlines()
+            
+        total_lines = len(source_lines)
+        comment_lines = sum(bool(line.strip().startswith("#")) for line in source_lines)
+        
+        return total_lines, comment_lines
+    
+    def _calculate_comment_ratio(self, total_lines: int, comment_lines: int) -> float:
+        """
+        Calculate the ratio of comment lines to total lines.
+        
+        Args:
+            total_lines: Total number of lines in the file
+            comment_lines: Number of comment lines in the file
+            
+        Returns:
+            Comment ratio as a float between 0 and 1
+        """
+        return round(comment_lines / total_lines, 2) if total_lines > 0 else 0
 
     def _process_line_counts(
         self, file_path: Path, result: Dict, path_str: str
@@ -420,20 +476,84 @@ class CodeAnalyzer:
             path_str: String representation of the relative path
         """
         try:
-            with open(file_path, "r", encoding="utf-8") as f:
-                source_lines = f.readlines()
-
-            total_lines = len(source_lines)
-            comment_lines = sum(
-                bool(line.strip().startswith("#")) for line in source_lines
-            )
-
+            total_lines, comment_lines = self._count_file_lines(file_path)
+            
             result["line_counts"][path_str] = total_lines
-            result["comment_ratios"][path_str] = (
-                round(comment_lines / total_lines, 2) if total_lines > 0 else 0
+            result["comment_ratios"][path_str] = self._calculate_comment_ratio(
+                total_lines, comment_lines
             )
         except (IOError, UnicodeDecodeError) as e:
             self.logger.warning(f"Failed to count lines in {file_path}: {e}")
+
+    def _create_naming_patterns(self) -> Dict[str, re.Pattern]:
+        """
+        Create regex patterns for different naming conventions.
+        
+        Returns:
+            Dictionary of naming convention patterns
+        """
+        return {
+            "snake_case": re.compile(r"^[a-z][a-z0-9_]*$"),
+            "camel_case": re.compile(r"^[a-z][a-zA-Z0-9]*$"),
+            "pascal_case": re.compile(r"^[A-Z][a-zA-Z0-9]*$"),
+            "screaming_snake_case": re.compile(r"^[A-Z][A-Z0-9_]*$"),
+        }
+        
+    def _analyze_module_naming(self, file_path: Path, patterns: Dict[str, re.Pattern], result: Dict) -> None:
+        """
+        Analyze the naming convention of a module.
+        
+        Args:
+            file_path: Path to the module file
+            patterns: Dictionary of naming convention patterns
+            result: Dictionary to store results
+        """
+        module_name = self._get_module_name(file_path)
+        module_basename = os.path.basename(file_path).replace(".py", "")
+        result["modules"][module_name] = self._determine_naming_convention(module_basename, patterns)
+    
+    def _analyze_class_naming(self, node: ast.ClassDef, module_name: str, patterns: Dict[str, re.Pattern], result: Dict) -> None:
+        """
+        Analyze the naming convention of a class.
+        
+        Args:
+            node: Class definition node
+            module_name: Name of the module containing the class
+            patterns: Dictionary of naming convention patterns
+            result: Dictionary to store results
+        """
+        class_name = node.name
+        result["classes"][f"{module_name}.{class_name}"] = self._determine_naming_convention(class_name, patterns)
+    
+    def _analyze_function_naming(self, node: ast.FunctionDef, module_name: str, patterns: Dict[str, re.Pattern], result: Dict) -> None:
+        """
+        Analyze the naming convention of a function.
+        
+        Args:
+            node: Function definition node
+            module_name: Name of the module containing the function
+            patterns: Dictionary of naming convention patterns
+            result: Dictionary to store results
+        """
+        func_name = node.name
+        if hasattr(node, "parent") and isinstance(node.parent, ast.ClassDef):
+            func_name = f"{node.parent.name}.{func_name}"
+        result["functions"][f"{module_name}.{func_name}"] = self._determine_naming_convention(func_name, patterns)
+    
+    def _analyze_variable_naming(self, node: ast.Assign, module_name: str, patterns: Dict[str, re.Pattern], result: Dict) -> None:
+        """
+        Analyze the naming convention of variables in an assignment.
+        
+        Args:
+            node: Assignment node
+            module_name: Name of the module containing the variable
+            patterns: Dictionary of naming convention patterns
+            result: Dictionary to store results
+        """
+        for target in node.targets:
+            if isinstance(target, ast.Name):
+                var_name = target.id
+                result["variables"][f"{module_name}.{var_name}"] = self._determine_naming_convention(var_name, patterns)
 
     def _analyze_naming(self) -> Dict:
         """
@@ -452,52 +572,235 @@ class CodeAnalyzer:
             "inconsistencies": [],
         }
 
-        # Patterns for different naming conventions
-        patterns = {
-            "snake_case": re.compile(r"^[a-z][a-z0-9_]*$"),
-            "camel_case": re.compile(r"^[a-z][a-zA-Z0-9]*$"),
-            "pascal_case": re.compile(r"^[A-Z][a-zA-Z0-9]*$"),
-            "screaming_snake_case": re.compile(r"^[A-Z][A-Z0-9_]*$"),
-        }
+        # Create patterns for different naming conventions
+        patterns = self._create_naming_patterns()
 
         # For each AST, extract all named elements
         for file_path, tree in self._ast_cache.items():
             module_name = self._get_module_name(file_path)
-            result["modules"][module_name] = self._determine_naming_convention(
-                os.path.basename(file_path).replace(".py", ""), patterns
-            )
+            
+            # Analyze module naming
+            self._analyze_module_naming(file_path, patterns, result)
 
-            # Extract class names
+            # Extract and analyze named elements
             for node in ast.walk(tree):
                 if isinstance(node, ast.ClassDef):
-                    class_name = node.name
-                    result["classes"][f"{module_name}.{class_name}"] = (
-                        self._determine_naming_convention(class_name, patterns)
-                    )
-
+                    self._analyze_class_naming(node, module_name, patterns, result)
                 elif isinstance(node, ast.FunctionDef):
-                    func_name = node.name
-                    if hasattr(node, "parent") and isinstance(
-                        node.parent, ast.ClassDef
-                    ):
-                        func_name = f"{node.parent.name}.{func_name}"
-                    result["functions"][f"{module_name}.{func_name}"] = (
-                        self._determine_naming_convention(func_name, patterns)
-                    )
-
+                    self._analyze_function_naming(node, module_name, patterns, result)
                 elif isinstance(node, ast.Assign):
-                    for target in node.targets:
-                        if isinstance(target, ast.Name):
-                            var_name = target.id
-                            result["variables"][f"{module_name}.{var_name}"] = (
-                                self._determine_naming_convention(var_name, patterns)
-                            )
+                    self._analyze_variable_naming(node, module_name, patterns, result)
 
         # Detect inconsistencies in naming conventions
         result["inconsistencies"] = self._detect_naming_inconsistencies(result)
 
         self._name_registry = result
         return result
+
+    def _is_main_check_node(self, node: ast.AST) -> bool:
+        """
+        Check if a node is an if __name__ == "__main__" check.
+        
+        Args:
+            node: AST node to check
+            
+        Returns:
+            True if the node is a main check, False otherwise
+        """
+        # Check if it's an if statement with a compare expression
+        if (
+            not isinstance(node, ast.If)
+            or not hasattr(node, "test")
+            or not isinstance(node.test, ast.Compare)
+        ):
+            return False
+
+        # Check if the left side is __name__
+        if (
+            not hasattr(node.test, "left")
+            or not isinstance(node.test.left, ast.Name)
+            or node.test.left.id != "__name__"
+        ):
+            return False
+
+        # Check if it's an equality comparison
+        if not isinstance(node.test.ops[0], ast.Eq):
+            return False
+
+        # Check if the right side is a string
+        return isinstance(node.test.comparators[0], ast.Str)
+    
+    def _is_main_entry_point(self, node: ast.AST) -> bool:
+        """
+        Check if a node is an if __name__ == "__main__" entry point.
+        
+        Args:
+            node: AST node to check
+            
+        Returns:
+            True if the node is a main entry point, False otherwise
+        """
+        if not self._is_main_check_node(node):
+            return False
+            
+        # Additional check for "__main__" string value
+        return (
+            len(node.test.ops) == 1 and
+            len(node.test.comparators) == 1 and
+            node.test.comparators[0].s == "__main__"
+        )
+    
+    def _process_package_structure(self, file_path: Path) -> tuple[str, str]:
+        """
+        Process the package structure for a file.
+        
+        Args:
+            file_path: Path to the file
+            tree: AST of the file
+            
+        Returns:
+            Tuple of (package_path, module_name)
+        """
+        relative_path = file_path.relative_to(self.project_path)
+        package_path = (
+            str(relative_path.parent)
+            if relative_path.parent != Path(".")
+            else ""
+        )
+        module_name = relative_path.stem
+        
+        return package_path, module_name
+    
+    def _collect_packages(self) -> defaultdict:
+        """
+        Collect package structure information.
+        
+        Returns:
+            Dictionary of packages and their modules
+        """
+        packages = defaultdict(list)
+        
+        for file_path, tree in self._ast_cache.items():
+            for node in ast.walk(tree):
+                if self._is_main_check_node(node):
+                    package_path, module_name = self._process_package_structure(file_path)
+                    
+                    if package_path:
+                        packages[package_path].append(module_name)
+                    else:
+                        packages["root"].append(module_name)
+        
+        return packages
+    
+    def _calculate_module_sizes(self, result: Dict) -> None:
+        """
+        Calculate the size of each module.
+        
+        Args:
+            result: Dictionary to store results
+        """
+        for file_path in self._ast_cache.keys():
+            relative_path = file_path.relative_to(self.project_path)
+            if file_path.exists():
+                result["module_sizes"][str(relative_path)] = file_path.stat().st_size
+    
+    def _identify_entry_points(self, result: Dict) -> None:
+        """
+        Identify potential entry points in the codebase.
+        
+        Args:
+            result: Dictionary to store results
+        """
+        for file_path, tree in self._ast_cache.items():
+            relative_path = file_path.relative_to(self.project_path)
+            
+            for node in ast.walk(tree):
+                if self._is_main_entry_point(node):
+                    result["entry_points"].append(str(relative_path))
+    
+    def _is_module_level_function(self, node: ast.FunctionDef, tree: ast.AST) -> bool:
+        """
+        Check if a function is at module level (not a method).
+        
+        Args:
+            node: Function node to check
+            tree: AST of the file
+            
+        Returns:
+            True if the function is at module level, False otherwise
+        """
+        return not any(
+            isinstance(parent, ast.ClassDef)
+            for parent in ast.iter_child_nodes(tree)
+            if hasattr(parent, "body") and node in parent.body
+        )
+    
+    def _is_public_node(self, node: ast.AST) -> bool:
+        """
+        Check if a node represents a public class or function.
+        
+        Args:
+            node: AST node to check
+            
+        Returns:
+            True if the node is public, False otherwise
+        """
+        return not node.name.startswith("_") if hasattr(node, "name") else False
+    
+    def _collect_public_classes(self, tree: ast.AST) -> List[str]:
+        """
+        Collect names of public classes in an AST.
+        
+        Args:
+            tree: AST to analyze
+            
+        Returns:
+            List of public class names
+        """
+        return [
+            node.name 
+            for node in ast.walk(tree) 
+            if isinstance(node, ast.ClassDef) and self._is_public_node(node)
+        ]
+    
+    def _collect_public_functions(self, tree: ast.AST) -> List[str]:
+        """
+        Collect names of public module-level functions in an AST.
+        
+        Args:
+            tree: AST to analyze
+            
+        Returns:
+            List of public function names
+        """
+        return [
+            node.name 
+            for node in ast.walk(tree) 
+            if isinstance(node, ast.FunctionDef) 
+            and self._is_public_node(node) 
+            and self._is_module_level_function(node, tree)
+        ]
+    
+    def _identify_api_surface(self, result: Dict) -> None:
+        """
+        Identify the public API surface of the codebase.
+        
+        Args:
+            result: Dictionary to store results
+        """
+        for file_path, tree in self._ast_cache.items():
+            module_name = self._get_module_name(file_path)
+            
+            # Collect public classes and functions
+            classes = self._collect_public_classes(tree)
+            functions = self._collect_public_functions(tree)
+            
+            # Only add to results if there are public classes or functions
+            if classes or functions:
+                result["api_surface"][module_name] = {
+                    "classes": classes,
+                    "functions": functions,
+                }
 
     def _analyze_module_structure(self) -> Dict:
         """
@@ -508,111 +811,31 @@ class CodeAnalyzer:
         """
         self.logger.info("Analyzing module structure")
 
-        packages = defaultdict(list)
-        for file_path, tree in self._ast_cache.items():
-            for node in ast.walk(tree):
-                if (
-                    isinstance(node, ast.If)
-                    and (hasattr(node, "test") and isinstance(node.test, ast.Compare))
-                    and (
-                        hasattr(node.test, "left")
-                        and isinstance(node.test.left, ast.Name)
-                    )
-                    and node.test.left.id == "__name__"
-                    and (
-                        isinstance(node.test.ops[0], ast.Eq)
-                        and isinstance(node.test.comparators[0], ast.Str)
-                    )
-                ):
-                    relative_path = file_path.relative_to(self.project_path)
-                    package_path = (
-                        str(relative_path.parent)
-                        if relative_path.parent != Path(".")
-                        else ""
-                    )
-                    module_name = relative_path.stem
-                    if package_path:
-                        packages[package_path].append(module_name)
-                    else:
-                        packages["root"].append(module_name)
+        # Collect package structure information - not used directly in this method
+        self._collect_packages()
 
+        # Initialize result dictionary
         result = {"module_sizes": {}, "entry_points": [], "api_surface": {}}
+        
         # Calculate module sizes
-        for file_path in self._ast_cache.keys():
-            relative_path = file_path.relative_to(self.project_path)
-            if file_path.exists():
-                result["module_sizes"][str(relative_path)] = file_path.stat().st_size
-
+        self._calculate_module_sizes(result)
+        
         # Identify potential entry points
-        for file_path, tree in self._ast_cache.items():
-            relative_path = file_path.relative_to(self.project_path)
-
-            # Check if file has __main__ block
-            for node in ast.walk(tree):
-                if (
-                    isinstance(node, ast.If)
-                    and (hasattr(node, "test") and isinstance(node.test, ast.Compare))
-                    and (
-                        hasattr(node.test, "left")
-                        and isinstance(node.test.left, ast.Name)
-                    )
-                    and node.test.left.id == "__name__"
-                    and (
-                        len(node.test.ops) == 1
-                        and isinstance(node.test.ops[0], ast.Eq)
-                        and len(node.test.comparators) == 1
-                        and isinstance(node.test.comparators[0], ast.Str)
-                        and node.test.comparators[0].s == "__main__"
-                    )
-                ):
-                    result["entry_points"].append(str(relative_path))
-
+        self._identify_entry_points(result)
+        
         # Identify API surface (public functions and classes)
-        for file_path, tree in self._ast_cache.items():
-            module_name = self._get_module_name(file_path)
-
-            public_api = {
-                "classes": [],
-                "functions": [],
-            }
-
-            # Find all non-private classes and functions
-            for node in ast.walk(tree):
-                if isinstance(node, ast.ClassDef) and not node.name.startswith("_"):
-                    public_api["classes"].append(node.name)
-                elif isinstance(node, ast.FunctionDef) and not node.name.startswith(
-                    "_"
-                ):
-                    # Check if function is at module level (not a method)
-                    if not any(
-                        isinstance(parent, ast.ClassDef)
-                        for parent in ast.iter_child_nodes(tree)
-                        if hasattr(parent, "body") and node in parent.body
-                    ):
-                        public_api["functions"].append(node.name)
-
-            if public_api["classes"] or public_api["functions"]:
-                result["api_surface"][module_name] = public_api
+        self._identify_api_surface(result)
 
         return result
 
-    def _analyze_code_patterns(self) -> Dict:
+    def _create_pattern_definitions(self) -> tuple[Dict, Dict, Dict]:
         """
-        Analyze common code patterns and anti-patterns.
-
+        Create definitions for design patterns, anti-patterns, and idioms.
+        
         Returns:
-            Dictionary with code pattern analysis.
+            Tuple of (design_patterns, anti_patterns, idioms) dictionaries
         """
-        self.logger.info("Analyzing code patterns")
-
-        result = {
-            "design_patterns": defaultdict(list),
-            "anti_patterns": defaultdict(list),
-            "common_idioms": defaultdict(int),
-            "pattern_locations": [],  # Store detailed location information
-        }
-
-        # Pattern definitions
+        # Design pattern definitions
         design_patterns = {
             "singleton": [
                 # Look for class with _instance class variable and __new__ method
@@ -642,6 +865,7 @@ class CodeAnalyzer:
             ],
         }
 
+        # Anti-pattern definitions
         anti_patterns = {
             "god_class": [
                 # Classes with too many methods and attributes
@@ -659,84 +883,167 @@ class CodeAnalyzer:
             ],
         }
 
+        # Common idiom definitions
         idioms = {
             "list_comprehension": [(ast.ListComp, lambda node: True)],
             "dict_comprehension": [(ast.DictComp, lambda node: True)],
             "context_manager": [(ast.With, lambda node: True)],
         }
+        
+        return design_patterns, anti_patterns, idioms
+    
+    def _create_pattern_result_structure(self) -> Dict:
+        """
+        Create the initial result structure for pattern analysis.
+        
+        Returns:
+            Dictionary with pattern analysis structure
+        """
+        return {
+            "design_patterns": defaultdict(list),
+            "anti_patterns": defaultdict(list),
+            "common_idioms": defaultdict(int),
+            "pattern_locations": [],  # Store detailed location information
+        }
+    
+    def _create_pattern_info(self, pattern_name: str, pattern_type: str, node: ast.AST, file_path: str) -> Dict:
+        """
+        Create pattern information dictionary for a detected pattern.
+        
+        Args:
+            pattern_name: Name of the pattern
+            pattern_type: Type of pattern (design_pattern or anti_pattern)
+            node: AST node where pattern was detected
+            file_path: Path to the file containing the pattern
+            
+        Returns:
+            Dictionary with pattern information
+        """
+        return {
+            "file": file_path,
+            "type": pattern_type,
+            "name": pattern_name,
+            "line": getattr(node, "lineno", 0),
+            "col": getattr(node, "col_offset", 0),
+        }
+    
+    def _analyze_design_patterns(self, tree: ast.AST, relative_path: str, design_patterns: Dict, result: Dict) -> None:
+        """
+        Analyze design patterns in an AST.
+        
+        Args:
+            tree: AST to analyze
+            relative_path: Relative path to the file
+            design_patterns: Dictionary of design pattern definitions
+            result: Dictionary to store results
+        """
+        for pattern_name, pattern_defs in design_patterns.items():
+            for node_type, condition in pattern_defs:
+                for node in ast.walk(tree):
+                    try:
+                        if isinstance(node, node_type) and condition(node):
+                            # Store pattern information
+                            pattern_info = self._create_pattern_info(
+                                pattern_name, "design_pattern", node, relative_path
+                            )
+                            result["pattern_locations"].append(pattern_info)
+                            result["design_patterns"][pattern_name].append(relative_path)
+                    except Exception as e:
+                        self.logger.warning(
+                            f"Error analyzing pattern {pattern_name} in {relative_path}: {e}"
+                        )
+    
+    def _analyze_anti_patterns(self, tree: ast.AST, relative_path: str, anti_patterns: Dict, result: Dict) -> None:
+        """
+        Analyze anti-patterns in an AST.
+        
+        Args:
+            tree: AST to analyze
+            relative_path: Relative path to the file
+            anti_patterns: Dictionary of anti-pattern definitions
+            result: Dictionary to store results
+        """
+        for pattern_name, pattern_defs in anti_patterns.items():
+            for node_type, condition in pattern_defs:
+                for node in ast.walk(tree):
+                    try:
+                        if isinstance(node, node_type) and condition(node):
+                            # Store pattern information
+                            pattern_info = self._create_pattern_info(
+                                pattern_name, "anti_pattern", node, relative_path
+                            )
+                            result["pattern_locations"].append(pattern_info)
+                            result["anti_patterns"][pattern_name].append(relative_path)
+                    except Exception as e:
+                        self.logger.warning(
+                            f"Error analyzing anti-pattern {pattern_name} in {relative_path}: {e}"
+                        )
+    
+    def _analyze_idioms(self, tree: ast.AST, relative_path: str, idioms: Dict, result: Dict) -> None:
+        """
+        Analyze common idioms in an AST.
+        
+        Args:
+            tree: AST to analyze
+            relative_path: Relative path to the file
+            idioms: Dictionary of idiom definitions
+            result: Dictionary to store results
+        """
+        for idiom_name, idiom_defs in idioms.items():
+            for node_type, condition in idiom_defs:
+                try:
+                    count = sum(
+                        bool(isinstance(node, node_type) and condition(node))
+                        for node in ast.walk(tree)
+                    )
+                    result["common_idioms"][idiom_name] += count
+                except Exception as e:
+                    self.logger.warning(
+                        f"Error analyzing idiom {idiom_name} in {relative_path}: {e}"
+                    )
+    
+    def _prepare_pattern_results_for_serialization(self, result: Dict) -> None:
+        """
+        Convert defaultdicts to regular dicts for serialization.
+        
+        Args:
+            result: Dictionary to prepare for serialization
+        """
+        result["design_patterns"] = dict(result["design_patterns"])
+        result["anti_patterns"] = dict(result["anti_patterns"])
+        result["common_idioms"] = dict(result["common_idioms"])
 
-        # Scan for patterns
+    def _analyze_code_patterns(self) -> Dict:
+        """
+        Analyze common code patterns and anti-patterns.
+
+        Returns:
+            Dictionary with code pattern analysis.
+        """
+        self.logger.info("Analyzing code patterns")
+
+        # Create pattern definitions
+        design_patterns, anti_patterns, idioms = self._create_pattern_definitions()
+        
+        # Initialize result structure
+        result = self._create_pattern_result_structure()
+
+        # Scan for patterns in each file
         for file_path, tree in self._ast_cache.items():
             try:
                 # Use relative path for reporting
                 relative_path = str(file_path.relative_to(self.project_path))
 
-                # Check for design patterns
-                for pattern_name, pattern_defs in design_patterns.items():
-                    for node_type, condition in pattern_defs:
-                        for node in ast.walk(tree):
-                            try:
-                                if isinstance(node, node_type) and condition(node):
-                                    # Store more detailed information
-                                    pattern_info = {
-                                        "file": relative_path,
-                                        "type": "design_pattern",
-                                        "name": pattern_name,
-                                        "line": getattr(node, "lineno", 0),
-                                        "col": getattr(node, "col_offset", 0),
-                                    }
-                                    result["pattern_locations"].append(pattern_info)
-                                    result["design_patterns"][pattern_name].append(
-                                        relative_path
-                                    )
-                            except Exception as e:
-                                self.logger.warning(
-                                    f"Error analyzing pattern {pattern_name} in {relative_path}: {e}"
-                                )
-
-                # Check for anti-patterns
-                for pattern_name, pattern_defs in anti_patterns.items():
-                    for node_type, condition in pattern_defs:
-                        for node in ast.walk(tree):
-                            try:
-                                if isinstance(node, node_type) and condition(node):
-                                    # Store more detailed information
-                                    pattern_info = {
-                                        "file": relative_path,
-                                        "type": "anti_pattern",
-                                        "name": pattern_name,
-                                        "line": getattr(node, "lineno", 0),
-                                        "col": getattr(node, "col_offset", 0),
-                                    }
-                                    result["pattern_locations"].append(pattern_info)
-                                    result["anti_patterns"][pattern_name].append(
-                                        relative_path
-                                    )
-                            except Exception as e:
-                                self.logger.warning(
-                                    f"Error analyzing anti-pattern {pattern_name} in {relative_path}: {e}"
-                                )
-
-                # Check for common idioms
-                for idiom_name, idiom_defs in idioms.items():
-                    for node_type, condition in idiom_defs:
-                        try:
-                            count = sum(
-                                bool(isinstance(node, node_type) and condition(node))
-                                for node in ast.walk(tree)
-                            )
-                            result["common_idioms"][idiom_name] += count
-                        except Exception as e:
-                            self.logger.warning(
-                                f"Error analyzing idiom {idiom_name} in {relative_path}: {e}"
-                            )
+                # Analyze different pattern types
+                self._analyze_design_patterns(tree, relative_path, design_patterns, result)
+                self._analyze_anti_patterns(tree, relative_path, anti_patterns, result)
+                self._analyze_idioms(tree, relative_path, idioms, result)
+                
             except Exception as e:
                 self.logger.error(f"Error analyzing patterns in {file_path}: {e}")
 
-        # Convert defaultdicts to regular dicts for serialization
-        result["design_patterns"] = dict(result["design_patterns"])
-        result["anti_patterns"] = dict(result["anti_patterns"])
-        result["common_idioms"] = dict(result["common_idioms"])
+        # Prepare results for serialization
+        self._prepare_pattern_results_for_serialization(result)
 
         return result
 

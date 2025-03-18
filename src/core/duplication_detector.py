@@ -18,6 +18,9 @@ from typing import Dict, List, Optional, Union
 
 
 class DuplicationDetector:
+    # Constants for context types
+    CONTEXT_CLASS = "class:"
+    CONTEXT_FUNCTION = "function:"
     """
     Detector for code duplication in Python projects.
     
@@ -251,7 +254,7 @@ class DuplicationDetector:
         # Extract all functions from the AST cache
         functions = []
         for file_path, tree in self._ast_cache.items():
-            file_functions = self._extract_functions(file_path, tree)
+            file_functions = self._extract_functions(tree)
             functions.extend(file_functions)
         
         # Compare functions pairwise for similarity
@@ -576,9 +579,9 @@ class DuplicationDetector:
                 "target_file": "utils/common.py",
                 "description": "Create a utility function in a common module"
             }
-        elif len(contexts) > 1 and all("class:" in ctx for ctx in contexts):
+        elif len(contexts) > 1 and all(self.CONTEXT_CLASS in ctx for ctx in contexts):
             # Suggest extracting to a base class or utility method
-            classes = [ctx.split("class:")[1].strip() for ctx in contexts if "class:" in ctx]
+            classes = [ctx.split(self.CONTEXT_CLASS)[1].strip() for ctx in contexts if self.CONTEXT_CLASS in ctx]
             return {
                 "type": "extract_class",
                 "target_file": str(blocks[0]["file"]),
@@ -595,12 +598,11 @@ class DuplicationDetector:
                 "description": "Extract duplicated code to a common function"
             }
     
-    def _extract_functions(self, file_path: Path, tree: ast.Module) -> List[Dict]:
+    def _extract_functions(self, tree: ast.Module) -> List[Dict]:
         """
         Extract all functions from an AST.
         
         Args:
-            file_path: Path to the Python file.
             tree: AST of the module.
             
         Returns:
@@ -957,6 +959,38 @@ class FunctionVisitor(ast.NodeVisitor):
         
         return sequences
 
+    def _is_node_containing_lines(self, node: ast.AST, start_line: int, end_line: int) -> bool:
+        """
+        Check if a node contains the given line range.
+        
+        Args:
+            node: AST node to check.
+            start_line: Start line number.
+            end_line: End line number.
+            
+        Returns:
+            True if the node contains the lines, False otherwise.
+        """
+        node_start = getattr(node, "lineno", 0)
+        node_end = getattr(node, "end_lineno", 0)
+        return node_start <= start_line and end_line <= node_end
+    
+    def _get_context_from_node(self, node: ast.AST) -> str:
+        """
+        Get the context string for a node.
+        
+        Args:
+            node: AST node (ClassDef or FunctionDef).
+            
+        Returns:
+            Context string.
+        """
+        if isinstance(node, ast.ClassDef):
+            return f"{self.CONTEXT_CLASS}{node.name}"
+        elif isinstance(node, ast.FunctionDef):
+            return f"{self.CONTEXT_FUNCTION}{node.name}"
+        return "global"
+    
     def _get_context_for_lines(self, file_path: Path, start_line: int, end_line: int) -> str:
         """
         Determine the context (class or function) for a given line range.
@@ -973,22 +1007,19 @@ class FunctionVisitor(ast.NodeVisitor):
         context = "global"
         
         # Check if the file is in the AST cache
-        if file_path in self._ast_cache:
-            tree = self._ast_cache[file_path]
+        if file_path not in self._ast_cache:
+            return context
             
-            # Find the closest class or function definition
-            for node in ast.walk(tree):
-                if isinstance(node, (ast.ClassDef, ast.FunctionDef)):
-                    node_start = getattr(node, "lineno", 0)
-                    node_end = getattr(node, "end_lineno", 0)
-                    
-                    # Check if our lines are within this node
-                    if node_start <= start_line and end_line <= node_end:
-                        if isinstance(node, ast.ClassDef):
-                            context = f"class:{node.name}"
-                        else:  # FunctionDef
-                            context = f"function:{node.name}"
-                        break
+        tree = self._ast_cache[file_path]
+        
+        # Find the closest class or function definition
+        for node in ast.walk(tree):
+            if not isinstance(node, (ast.ClassDef, ast.FunctionDef)):
+                continue
+                
+            if self._is_node_containing_lines(node, start_line, end_line):
+                context = self._get_context_from_node(node)
+                break
         
         return context
     

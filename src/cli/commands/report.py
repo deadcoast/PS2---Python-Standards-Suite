@@ -5,15 +5,21 @@ This module provides the 'report' command for the PS2 CLI, allowing users
 to generate comprehensive reports about their Python projects.
 """
 
-from typing import Any, Dict, List, Optional  # TODO: Remove unused imports
+import os
+import json
+from datetime import datetime
+import argparse
+import sys
+import traceback
+import re
+import markdown
 
-from ps2.cli.helpers.formatting import format_result, output_formats
+from typing import Any, Dict, List
+import weasyprint
 
 
 class ReportCommand:
     """
-from typing import Dict, Any, List, Optional  # TODO: Remove unused imports  # TODO: Remove unused imports
-    
     This command creates comprehensive reports about Python projects,
     including code quality, performance, and other metrics.
     """
@@ -78,102 +84,132 @@ from typing import Dict, Any, List, Optional  # TODO: Remove unused imports  # T
         )
     
     @staticmethod
-    def execute(args: argparse.Namespace, ps2: Any) -> int:
+    def _determine_report_inclusions(args):
         """
-        Execute the report command.
+        Determine what sections to include in the report based on command-line arguments.
         
         Args:
             args: Parsed command-line arguments.
+            
+        Returns:
+            Dictionary with boolean flags for each section.
+        """
+        include_all = args.all or not any([args.quality, args.structure, args.performance, args.security])
+        return {
+            "quality": args.quality or include_all,
+            "structure": args.structure or include_all,
+            "performance": args.performance or include_all,
+            "security": args.security or include_all
+        }
+    
+    @staticmethod
+    def _initialize_report_data(project_name, report_title, ps2):
+        """
+        Initialize the basic report data structure.
+        
+        Args:
+            project_name: Name of the project.
+            report_title: Title for the report.
             ps2: Initialized PS2 instance.
             
         Returns:
-            Exit code (0 for success, non-zero for failure).
+            Dictionary with basic report data.
         """
-        # Determine what to include in the report
-        include_all = args.all or not any([args.quality,
-            args.structure,
-            args.performance,
-            args.security])
-        include_quality = args.quality or include_all
-        include_structure = args.structure or include_all
-        include_performance = args.performance or include_all
-        include_security = args.security or include_all
+        timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        report_data = {
+            "title": report_title,
+            "project": project_name,
+            "date": timestamp,
+            "sections": []
+        }
         
-        # Determine project name and report title
-        project_name = os.path.basename(os.path.abspath(args.project))
-        report_title = args.title or f"{project_name} PS2 Report"
+        # Add basic project info section
+        project_info = {
+            "title": "Project Information",
+            "data": {
+                "name": project_name,
+                "path": str(ps2.project_path),
+                "report_date": timestamp,
+            }
+        }
+        report_data["sections"].append(project_info)
         
-        # Determine output file
-        if not args.output_file:
-            args.output_file = f"ps2_report.{args.output}"
+        return report_data
+    
+    @staticmethod
+    def _collect_analysis_data(ps2, inclusions, report_data):
+        """
+        Collect analysis data based on what sections are included.
+        
+        Args:
+            ps2: Initialized PS2 instance.
+            inclusions: Dictionary with boolean flags for each section.
+            report_data: Report data dictionary to update.
+            
+        Returns:
+            Updated report data dictionary.
+        """
+        # Include code quality analysis if requested
+        if inclusions["quality"]:
+            print("Running code quality analysis...")
+            quality_result = ps2.check_code_quality(fix=False)
+            
+            quality_section = {
+                "title": "Code Quality Analysis",
+                "data": quality_result
+            }
+            report_data["sections"].append(quality_section)
+        
+        # Include structure analysis if requested
+        if inclusions["structure"]:
+            print("Running structure analysis...")
+            structure_result = ps2.analyze_codebase()
+            
+            structure_section = {
+                "title": "Project Structure Analysis",
+                "data": structure_result
+            }
+            report_data["sections"].append(structure_section)
+        
+        # Include performance analysis if requested
+        if inclusions["performance"]:
+            print("Running performance analysis...")
+            performance_result = ps2.monitor_performance(duration=0)  # No active monitoring
+            
+            performance_section = {
+                "title": "Performance Analysis",
+                "data": performance_result
+            }
+            report_data["sections"].append(performance_section)
+        
+        # Include security analysis if requested
+        if inclusions["security"]:
+            print("Running security analysis...")
+            security_result = ps2.scan_security(fix=False)
+            
+            security_section = {
+                "title": "Security Analysis",
+                "data": security_result
+            }
+            report_data["sections"].append(security_section)
+        
+        return report_data
+    
+    @staticmethod
+    def _generate_output_file(args, report_data):
+        """
+        Generate the output file based on the specified format.
+        
+        Args:
+            args: Parsed command-line arguments.
+            report_data: Report data dictionary.
+            
+        Returns:
+            Tuple of (success, error_message).
+        """
+        print(f"Generating {args.output} report...")
         
         try:
-            # Run the appropriate analyses
-            report_data = {
-                "title": report_title,
-                "project": project_name,
-                "date": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-                "sections": []
-            }
-            
-            # Always include basic project info
-            project_info = {
-                "title": "Project Information",
-                "data": {
-                    "name": project_name,
-                    "path": str(ps2.project_path),
-                    "report_date": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-                }
-            }
-            report_data["sections"].append(project_info)
-            
-            # Include code quality analysis if requested
-            if include_quality:
-                print("Running code quality analysis...")
-                quality_result = ps2.check_code_quality(fix=False)
-                
-                quality_section = {
-                    "title": "Code Quality Analysis",
-                    "data": quality_result
-                }
-                report_data["sections"].append(quality_section)
-            
-            # Include structure analysis if requested
-            if include_structure:
-                print("Running structure analysis...")
-                structure_result = ps2.analyze_codebase()
-                
-                structure_section = {
-                    "title": "Project Structure Analysis",
-                    "data": structure_result
-                }
-                report_data["sections"].append(structure_section)
-            
-            # Include performance analysis if requested
-            if include_performance:
-                print("Running performance analysis...")
-                performance_result = ps2.monitor_performance(duration=0)  # No active monitoring
-                
-                performance_section = {
-                    "title": "Performance Analysis",
-                    "data": performance_result
-                }
-                report_data["sections"].append(performance_section)
-            
-            # Include security analysis if requested
-            if include_security:
-                print("Running security analysis...")
-                security_result = ps2.scan_security(fix=False)
-                
-                security_section = {
-                    "title": "Security Analysis",
-                    "data": security_result
-                }
-                report_data["sections"].append(security_section)
-            
-            # Generate the report
-            print(f"Generating {args.output} report...")
-            
             if args.output == "json":
                 # JSON output is straightforward
                 with open(args.output_file, "w") as f:
@@ -192,25 +228,72 @@ from typing import Dict, Any, List, Optional  # TODO: Remove unused imports  # T
                     f.write(html_content)
             
             elif args.output == "pdf":
-                # Generate PDF report (via HTML)
-                try:
-                    
-                    # First generate HTML
-                    html_content = ReportCommand._generate_html_report(report_data)
-                    
-                    # Convert to PDF
-                    pdf = weasyprint.HTML(string=html_content).write_pdf()
-                    with open(args.output_file, "wb") as f:
-                        f.write(pdf)
-                
-                    args.output_file = args.output_file.replace(".pdf",
-                        ".html")
-                    print("Warning: weasyprint module not available. Falling back to HTML format.")
-                    # Fall back to HTML if weasyprint is not available
-                    args.output_file = args.output_file.replace(".pdf", ".html")
-                    html_content = ReportCommand._generate_html_report(report_data)
-                    with open(args.output_file, "w") as f:
-                        f.write(html_content)
+                ReportCommand._generate_pdf_report(args, report_data)
+            
+            return True, None
+        except Exception as e:
+            return False, str(e)
+    
+    @staticmethod
+    def _generate_pdf_report(args, report_data):
+        """
+        Generate a PDF report, falling back to HTML if necessary.
+        
+        Args:
+            args: Parsed command-line arguments.
+            report_data: Report data dictionary.
+        """
+        try:
+            # First generate HTML
+            html_content = ReportCommand._generate_html_report(report_data)
+            
+            # Convert to PDF
+            pdf = weasyprint.HTML(string=html_content).write_pdf()
+            with open(args.output_file, "wb") as f:
+                f.write(pdf)
+        except ImportError:
+            print("Warning: weasyprint module not available. Falling back to HTML format.")
+            # Fall back to HTML if weasyprint is not available
+            args.output_file = args.output_file.replace(".pdf", ".html")
+            html_content = ReportCommand._generate_html_report(report_data)
+            with open(args.output_file, "w") as f:
+                f.write(html_content)
+    
+    @staticmethod
+    def execute(args: argparse.Namespace, ps2: Any) -> int:
+        """
+        Execute the report command.
+        
+        Args:
+            args: Parsed command-line arguments.
+            ps2: Initialized PS2 instance.
+            
+        Returns:
+            Exit code (0 for success, non-zero for failure).
+        """
+        # Determine project name and report title
+        project_name = os.path.basename(os.path.abspath(args.project))
+        report_title = args.title or f"{project_name} PS2 Report"
+        
+        # Determine output file
+        if not args.output_file:
+            args.output_file = f"ps2_report.{args.output}"
+        
+        try:
+            # Determine what to include in the report
+            inclusions = ReportCommand._determine_report_inclusions(args)
+            
+            # Initialize report data
+            report_data = ReportCommand._initialize_report_data(project_name, report_title, ps2)
+            
+            # Collect analysis data
+            report_data = ReportCommand._collect_analysis_data(ps2, inclusions, report_data)
+            
+            # Generate the output file
+            success, error_message = ReportCommand._generate_output_file(args, report_data)
+            
+            if not success:
+                raise ValueError(error_message)
             
             print(f"Report generated successfully: {args.output_file}")
             return 0
@@ -252,9 +335,6 @@ from typing import Dict, Any, List, Optional  # TODO: Remove unused imports  # T
                 )
                 lines.append("")
                 continue
-                status_icon = """
-                    ✅" if status in ["PASS", "FIXED", "INFO"] else "❌
-                """
             # Handle standard analysis results
             if "status" in data:
                 status = data["status"].upper()
@@ -278,67 +358,154 @@ from typing import Dict, Any, List, Optional  # TODO: Remove unused imports  # T
             lines.append("")
 
         return "\n".join(lines)
-    def _add_quality_details_markdown(self, data: Dict) -> None:
+    
+    @staticmethod
+    def _add_style_check_details(lines: List[str], style_data: Dict) -> None:
+        """Add style check details to the markdown report.
+        
+        Args:
+            lines: List of markdown lines to append to.
+            style_data: Style check data.
+        """
+        if "black" in style_data:
+            lines.append(f"- **Black**: {style_data['black'].get('message', '')}")
+
+        if "isort" in style_data:
+            lines.append(f"- **Isort**: {style_data['isort'].get('message', '')}")
+
+        lines.append("")
+    
+    @staticmethod
+    def _add_flake8_details(lines: List[str], flake8_data: Dict) -> None:
+        """Add Flake8 details to the markdown report.
+        
+        Args:
+            lines: List of markdown lines to append to.
+            flake8_data: Flake8 data.
+        """
+        lines.append(f"- **Flake8**: {flake8_data.get('message', '')}")
+
+        if "issues" in flake8_data and flake8_data["issues"]:
+            lines.append("  - Issues found:")
+            lines.extend((f"    - {issue}" for issue in flake8_data["issues"][:5]))
+            if len(flake8_data["issues"]) > 5:
+                lines.append(f"    - ... and {len(flake8_data['issues']) - 5} more")
+    
+    @staticmethod
+    def _add_pylint_details(lines: List[str], pylint_data: Dict) -> None:
+        """Add Pylint details to the markdown report.
+        
+        Args:
+            lines: List of markdown lines to append to.
+            pylint_data: Pylint data.
+        """
+        score = pylint_data.get("score", 0)
+        lines.append(f"- **Pylint Score**: {score}/10")
+
+        if "issues_by_type" in pylint_data:
+            lines.append("  - Issues by type:")
+            lines.extend(
+                f"    - {issue_type}: {count}"
+                for issue_type, count in pylint_data["issues_by_type"].items()
+            )
+    
+    @staticmethod
+    def _add_quality_details_markdown(lines: List[str], data: Dict) -> None:
         """Add code quality details to Markdown report."""
         
         # Add style checks
         if "style" in data:
-            style_data = self._extracted_from__add_quality_details_markdown_6(
+            style_data = ReportCommand._append_status(
                 "### Style Checks", data, "style"
             )
-            if "black" in style_data:
-                self.append(f"- **Black**: {style_data['black'].get('message', '')}")
-
-            if "isort" in style_data:
-            linting_data = (
-                self._extracted_from__add_quality_details_markdown_6(
-            )
-
-            self.append("")
+            ReportCommand._add_style_check_details(lines, style_data)
 
         # Add linting checks
         if "linting" in data:
-            linting_data = self._extracted_from__add_quality_details_markdown_6(
+            linting_data = ReportCommand._append_status(
                 "### Linting Checks", data, "linting"
             )
             if "flake8" in linting_data:
-                flake8_data = linting_data["flake8"]
-                self.append(f"- **Flake8**: {flake8_data.get('message', '')}")
-
-                if "issues" in flake8_data and flake8_data["issues"]:
-                    self.append("  - Issues found:")
-                    self.extend((f"    - {issue}" for issue in flake8_data["issues"][:5]))
-                    if len(flake8_data["issues"]) > 5:
-                        self.append(f"    - ... and {len(flake8_data['issues']) - 5} more")
+                ReportCommand._add_flake8_details(lines, linting_data["flake8"])
 
             if "pylint" in linting_data:
-                pylint_data = linting_data["pylint"]
-                score = pylint_data.get("score", 0)
-                self.append(f"- **Pylint Score**: {score}/10")
+                ReportCommand._add_pylint_details(lines, linting_data["pylint"])
+                
+            lines.append("")
 
-                if "issues_by_type" in pylint_data:
-                    self.append("  - Issues by type:")
-                    self.extend(
-                        (
-                            f"    - {issue_type}: {count}"
-    def _extracted_from__add_quality_details_markdown_6(self,
-        arg0,
-        data,
-        arg2)
-                                "issues_by_type"
-                            ].items()
-                        )
-                    )
-            self.append("")
+    @staticmethod
+    def _append_status(lines: List[str], data: Dict, key: str) -> Dict:
+        lines.append(f"### {key.title()}")
+        result = data[key]
 
-    # TODO Rename this here and in `_add_quality_details_markdown`
-    def _extracted_from__add_quality_details_markdown_6(self, arg0, data, arg2):
-        self.append(arg0)
-        result = data[arg2]
-
-        self.append(f"- **Status**: {result.get('status', 'unknown').upper()}")
+        lines.append(f"- **Status**: {result.get('status', 'unknown').upper()}")
 
         return result
+    
+    @staticmethod
+    def _add_package_hierarchy(lines: List[str], package_hierarchy: Dict) -> None:
+        """Add package hierarchy to the markdown report.
+        
+        Args:
+            lines: List of markdown lines to append to.
+            package_hierarchy: Package hierarchy data.
+        """
+        lines.append("### Package Hierarchy")
+        
+        # Convert to tree-like representation
+        for package, modules in package_hierarchy.items():
+            if package == "root":
+                lines.append("- Root:")
+            else:
+                lines.append(f"- {package}:")
+
+            lines.extend(f"  - {module}" for module in modules)
+        lines.append("")
+    
+    @staticmethod
+    def _add_entry_points(lines: List[str], entry_points: List[str]) -> None:
+        """Add entry points to the markdown report.
+        
+        Args:
+            lines: List of markdown lines to append to.
+            entry_points: List of entry points.
+        """
+        lines.append("### Entry Points")
+        lines.extend(f"- {entry_point}" for entry_point in entry_points)
+        lines.append("")
+    
+    @staticmethod
+    def _add_circular_dependencies(lines: List[str], circular_dependencies: List[List[str]]) -> None:
+        """Add circular dependencies to the markdown report.
+        
+        Args:
+            lines: List of markdown lines to append to.
+            circular_dependencies: List of circular dependency cycles.
+        """
+        lines.append("### Circular Dependencies")
+        
+        for cycle in circular_dependencies:
+            cycle_str = " -> ".join(cycle) + " -> " + cycle[0]
+            lines.append(f"- {cycle_str}")
+        
+        lines.append("")
+    
+    @staticmethod
+    def _add_external_dependencies(lines: List[str], external_dependencies: Dict) -> None:
+        """Add external dependencies to the markdown report.
+        
+        Args:
+            lines: List of markdown lines to append to.
+            external_dependencies: External dependencies data.
+        """
+        lines.append("### External Dependencies")
+        
+        if processed_deps := {module for module, deps in external_dependencies.items()}:
+            lines.extend(f"- {dep}" for dep in sorted(processed_deps))
+        else:
+            lines.append("- No external dependencies found")
+        
+        lines.append("")
     
     @staticmethod
     def _add_structure_details_markdown(lines: List[str], data: Dict) -> None:
@@ -351,84 +518,69 @@ from typing import Dict, Any, List, Optional  # TODO: Remove unused imports  # T
             module_structure = data["module_structure"]
 
             if "package_hierarchy" in module_structure:
-                lines.append("### Package Hierarchy")
-                package_hierarchy = module_structure["package_hierarchy"]
-
-                # Convert to tree-like representation
-                for package, modules in package_hierarchy.items():
-                    if package == "root":
-                        lines.append("- Root:")
-                    else:
-                        lines.append(f"- {package}:")
-
-                    lines.extend(f"  - {module}" for module in modules)
-                lines.append("")
+                ReportCommand._add_package_hierarchy(lines, module_structure["package_hierarchy"])
 
             if "entry_points" in module_structure:
-                lines.append("### Entry Points")
-
-                lines.extend(
-                    f"- {entry_point}"
-                    for entry_point in module_structure["entry_points"]
-                )
-                lines.append("")
+                ReportCommand._add_entry_points(lines, module_structure["entry_points"])
 
         if "import_structure" in data:
             import_structure = data["import_structure"]
 
             if "circular_dependencies" in import_structure and import_structure["circular_dependencies"]:
-                lines.append("### Circular Dependencies")
-
-                for cycle in import_structure["circular_dependencies"]:
-                    cycle_str = " -> ".join(cycle) + " -> " + cycle[0]
-                    lines.append(f"- {cycle_str}")
-
-                lines.append("")
+                ReportCommand._add_circular_dependencies(lines, import_structure["circular_dependencies"])
 
             if "external_dependencies" in import_structure:
-                lines.append("### External Dependencies")
+                ReportCommand._add_external_dependencies(lines, import_structure["external_dependencies"])
+    
+    @staticmethod
+    def _add_static_performance_issues(lines: List[str], static_issues: List[Dict]) -> None:
+        """Add static performance issues to the markdown report.
+        
+        Args:
+            lines: List of markdown lines to append to.
+            static_issues: List of static performance issues.
+        """
+        lines.append("### Potential Performance Issues")
 
-                processed_deps = set()
-                for module, deps in import_structure["external_dependencies"].items():
-    def _add_performance_details_markdown(lines: List[str],
-        data: Dict)
-                        processed_deps.add(dep)
+        for issue in static_issues:
+            lines.append(f"- **{issue.get('type', 'Unknown')}** ({issue.get('severity', 'unknown')})")
+            lines.append(f"  - File: {issue.get('file', 'unknown')}, Line: {issue.get('line', 'unknown')}")
+            lines.append(f"  - Description: {issue.get('description', '')}")
+            if "suggestion" in issue:
+                lines.append(f"  - Suggestion: {issue['suggestion']}")
+            lines.append("")
+    
+    @staticmethod
+    def _add_profiling_results(lines: List[str], profiling_results: List[Dict]) -> None:
+        """Add profiling results to the markdown report.
+        
+        Args:
+            lines: List of markdown lines to append to.
+            profiling_results: List of profiling metrics.
+        """
+        lines.append("### Profiling Results")
 
-                if processed_deps:
-                    lines.extend(f"- {dep}" for dep in sorted(processed_deps))
-                else:
-                    lines.append("- No external dependencies found")
-
-                lines.append("")
+        for metric in profiling_results:
+            lines.extend(
+                (
+                    f"- **{metric.get('name', 'Unknown')}**: {metric.get('value', 0)} {metric.get('unit', '')}",
+                    f"- **Status**: {metric.get('status', 'unknown').upper()}",
+                )
+            )
+            if "reason" in metric:
+                lines.append(f"  - {metric['reason']}")
+        
+        lines.append("")
     
     @staticmethod
     def _add_performance_details_markdown(lines: List[str], data: Dict) -> None:
         """Add performance details to Markdown report."""
         
         if "static_issues" in data and data["static_issues"]:
-            lines.append("### Potential Performance Issues")
-
-            for issue in data["static_issues"]:
-                lines.append(f"- **{issue.get('type', 'Unknown')}** ({issue.get('severity', 'unknown')})")
-                lines.append(f"  - File: {issue.get('file', 'unknown')}, Line: {issue.get('line', 'unknown')}")
-                lines.append(f"  - Description: {issue.get('description', '')}")
-                if "suggestion" in issue:
-                    lines.append(f"  - Suggestion: {issue['suggestion']}")
-                lines.append("")
+            ReportCommand._add_static_performance_issues(lines, data["static_issues"])
 
         if "profiling_results" in data:
-            lines.append("### Profiling Results")
-
-                f"- **{metric.get('name',
-                    'Unknown')}**: {metric.get('value',
-                    0)} {metric.get('unit',
-                    '')
-                status = result.get("status", "unknown")
-                lines.append(f"- **{key}**: {status}")
-                if "reason" in result:
-                    lines.append(f"  - {result['reason']}")
-
-            lines.append("")
+            ReportCommand._add_profiling_results(lines, data["profiling_results"])
 
         if "metrics" in data and data["metrics"]:
             lines.append("### Performance Metrics")
@@ -443,55 +595,80 @@ from typing import Dict, Any, List, Optional  # TODO: Remove unused imports  # T
             lines.append("")
     
     @staticmethod
+    def _add_severity_counts(lines: List[str], severity_counts: Dict) -> None:
+        """Add severity counts to the markdown report.
+        
+        Args:
+            lines: List of markdown lines to append to.
+            severity_counts: Dictionary of severity counts.
+        """
+        lines.append("### Security Issues by Severity")
+
+        lines.extend(
+            f"- **{severity}**: {count}"
+            for severity, count in severity_counts.items()
+        )
+        lines.append("")
+    
+    @staticmethod
+    def _add_dependency_vulnerabilities(lines: List[str], dep_vulns: List[Dict]) -> None:
+        """Add dependency vulnerabilities to the markdown report.
+        
+        Args:
+            lines: List of markdown lines to append to.
+            dep_vulns: List of dependency vulnerabilities.
+        """
+        lines.append("### Dependency Vulnerabilities")
+
+        for vuln in dep_vulns[:5]:  # Show only first 5
+            lines.append(f"- **{vuln.get('package', 'Unknown')}** ({vuln.get('severity', 'unknown')})")
+            lines.append(f"  - ID: {vuln.get('vulnerability_id', 'unknown')}")
+            lines.append(f"  - Description: {vuln.get('description', '')}")
+            lines.append(f"  - Installed version: {vuln.get('installed_version', '')}")
+            if vuln.get("fix_available", False):
+                lines.append(f"  - Fix available: version {vuln.get('fix_version', 'unknown')}")
+            lines.append("")
+
+        if len(dep_vulns) > 5:
+            lines.extend((f"- ... and {len(dep_vulns) - 5} more vulnerabilities", ""))
+    
+    @staticmethod
+    def _add_code_vulnerabilities(lines: List[str], code_vulns: List[Dict]) -> None:
+        """Add code vulnerabilities to the markdown report.
+        
+        Args:
+            lines: List of markdown lines to append to.
+            code_vulns: List of code vulnerabilities.
+        """
+        lines.append("### Code Vulnerabilities")
+
+        for vuln in code_vulns[:5]:  # Show only first 5
+            lines.append(f"- **{vuln.get('issue_name', 'Unknown')}** ({vuln.get('severity', 'unknown')})")
+            lines.append(f"  - File: {vuln.get('file', 'unknown')}, Line: {vuln.get('line', 'unknown')}")
+            lines.append(f"  - Description: {vuln.get('description', '')}")
+            if "fix_suggestion" in vuln:
+                lines.append(f"  - Suggestion: {vuln['fix_suggestion']}")
+            lines.append("")
+
+        if len(code_vulns) > 5:
+            lines.extend((f"- ... and {len(code_vulns) - 5} more vulnerabilities", ""))
+    
+    @staticmethod
     def _add_security_details_markdown(lines: List[str], data: Dict) -> None:
         """Add security details to Markdown report."""
         
         if "severity_counts" in data:
-            lines.append("### Security Issues by Severity")
-
-            lines.extend(
-                f"- **{severity}**: {count}"
-                for severity, count in data["severity_counts"].items()
-            )
-            lines.append("")
+            ReportCommand._add_severity_counts(lines, data["severity_counts"])
 
         if "dependency_vulnerabilities" in data:
-            if dep_vulns := data["dependency_vulnerabilities"].get(
-                "vulnerabilities", []
-            ):
-                lines.append("### Dependency Vulnerabilities")
-
-                for vuln in dep_vulns[:5]:  # Show only first 5
-                    lines.append(f"- **{vuln.get('package', 'Unknown')}** ({vuln.get('severity', 'unknown')})")
-                    lines.append(f"  - ID: {vuln.get('vulnerability_id', 'unknown')}")
-                    lines.append(f"  - Description: {vuln.get('description', '')}")
-                    lines.append(f"  - Installed version: {vuln.get('installed_version', '')}")
-                    if vuln.get("fix_available", False):
-                        lines.append(f"  - Fix available: version {vuln.get('fix_version', 'unknown')}")
-                    lines.append("")
-
-                if len(dep_vulns) > 5:
-                    lines.extend((f"- ... and {len(dep_vulns) - 5} more vulnerabilities", ""))
+            if dep_vulns := data["dependency_vulnerabilities"].get("vulnerabilities", []):
+                ReportCommand._add_dependency_vulnerabilities(lines, dep_vulns)
+                
         if "code_vulnerabilities" in data:
-            if code_vulns := data["code_vulnerabilities"].get(
-                "vulnerabilities", []
-            ):
-                lines.append("### Code Vulnerabilities")
-
-                for vuln in code_vulns[:5]:  # Show only first 5
-                    lines.append(f"- **{vuln.get('issue_name', 'Unknown')}** ({vuln.get('severity', 'unknown')})")
-                    lines.append(f"  - File: {vuln.get('file', 'unknown')}, Line: {vuln.get('line', 'unknown')}")
-                    lines.append(f"  - Description: {vuln.get('description', '')}")
-                    if "fix_suggestion" in vuln:
-                        lines.append(f"  - Suggestion: {vuln['fix_suggestion']}")
-                    lines.append("")
-
-                if len(code_vulns) > 5:
-                    lines.extend((f"- ... and {len(code_vulns) - 5} more vulnerabilities", ""))
+            if code_vulns := data["code_vulnerabilities"].get("vulnerabilities", []):
+                ReportCommand._add_code_vulnerabilities(lines, code_vulns)
     
-            html_body = markdown.markdown(markdown_content,
-                extensions=['tables',
-                'fenced_code'])
+    @staticmethod
     def _generate_html_report(report_data: Dict) -> str:
         """
         Generate an HTML report from the report data.
@@ -592,12 +769,12 @@ from typing import Dict, Any, List, Optional  # TODO: Remove unused imports  # T
             
         Returns:
             HTML text.
+        """
+        # Convert lists
         html = re.sub(r'(<li>.*?</li>(\n|$))+',
             r'<ul>\g<0></ul>',
-            html,
+            markdown_text,
             flags=re.DOTALL)
-        # This is a very basic converter for when the markdown package is not available
-        html = markdown_text
         
         # Headers
         html = re.sub(r'^# (.*)$', r'<h1>\1</h1>', html, flags=re.MULTILINE)

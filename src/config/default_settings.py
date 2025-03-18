@@ -6,9 +6,19 @@ serving as the baseline configuration that can be overridden by user-specific
 settings.
 """
 
-from typing import (  # TODO: Remove unused imports; TODO: Remove unused imports  # TODO: Remove unused imports
-    Any, Dict)
+import os
+from pathlib import Path
+from typing import Dict, Any
 
+import json
+import yaml
+import toml
+
+# File extension constants
+JSON_EXT = ".json"
+YAML_EXT = ".yaml"
+YML_EXT = ".yml"
+TOML_EXT = ".toml"
 
 def get_default_config() -> Dict[str, Any]:
     """
@@ -149,13 +159,13 @@ def get_config_from_file(config_path: Path) -> Dict[str, Any]:
         return config
 
     # Determine file format and load
-    if config_path.suffix == ".json":
+    if config_path.suffix == JSON_EXT:
         with open(config_path, "r") as f:
             user_config = json.load(f)
-    elif config_path.suffix in [".yml", ".yaml"]:
+    elif config_path.suffix in [YML_EXT, YAML_EXT]:
         with open(config_path, "r") as f:
             user_config = yaml.safe_load(f)
-    elif config_path.suffix == ".toml":
+    elif config_path.suffix == TOML_EXT:
         with open(config_path, "r") as f:
             user_config = toml.load(f)
     else:
@@ -211,17 +221,17 @@ def get_user_config_path() -> Path:
     """
     # Check current directory
     current_dir = Path.cwd()
-    for ext in [".json", ".yaml", ".yml", ".toml"]:
+    for ext in [JSON_EXT, YAML_EXT, YML_EXT, TOML_EXT]:
         config_path = current_dir / f".ps2{ext}"
         if config_path.exists():
             return config_path
 
     # Check home directory
     home_dir = Path.home()
-    for ext in [".json", ".yaml", ".yml", ".toml"]:
+    for ext in [JSON_EXT, YAML_EXT, YML_EXT, TOML_EXT]:
         config_path = home_dir / f".ps2{ext}"
         if config_path.exists():
             return config_path
 
     # Default to JSON in current directory
-    return current_dir / ".ps2.json"
+    return current_dir / f".ps2{JSON_EXT}"

@@ -5,15 +5,25 @@ This module provides a command-line interface for using the PS2 system,
 allowing users to access PS2 features directly from the terminal.
 """
 
-from typing import (Any, Dict, List, Optional,  # TODO: Remove unused imports
-                    Union)
+import argparse
+from pathlib import Path
+import sys
+import logging
+import traceback
+import coloredlogs
+
+from typing import Dict
+
+# Import PS2 initialization function
+from src.ps2 import initialize_ps2
+
+# Constants
+LOG_FORMAT = "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+LOG_DATE_FORMAT = "%H:%M:%S"
+
 
 # Add parent directory to path to allow importing PS2 modules
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
-
-
-from typing import (  # TODO: Remove unused imports  # TODO: Line too long, needs manual fixing  # TODO: Remove unused imports
-    Any, Dict, List, Optional, Union)
 
 
 def parse_args() -> argparse.Namespace:
@@ -51,9 +61,6 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--no-color", help="Disable colored output", action="store_true"
     )
-    subparsers = parser.add_subparsers(dest="command",
-        help="PS2 command to run")
-    # Commands
     subparsers = parser.add_subparsers(dest="command", help="PS2 command to run")
 
     # Generate project command
@@ -85,11 +92,8 @@ def parse_args() -> argparse.Namespace:
         help="Type of check to perform (default: all)",
         choices=["all", "style", "lint", "type", "doc", "complexity"],
         default="all",
-    conflict_parser = subparsers.add_parser("conflicts",
-        help="Detect naming conflicts")
-
-    # Detect conflicts command
-    conflict_parser = subparsers.add_parser("conflicts", help="Detect naming conflicts")
+    )
+    subparsers.add_parser("conflicts", help="Detect naming conflicts")
 
     # Manage dependencies command
     dependency_parser = subparsers.add_parser(
@@ -103,13 +107,12 @@ def parse_args() -> argparse.Namespace:
     )
 
     # Detect duplications command
-    duplication_parser = subparsers.add_parser(
-    import_parser = subparsers.add_parser("imports",
-        help="Enforce import standards")
+    subparsers.add_parser(
+        "duplications", help="Detect code duplications"
     )
 
     # Enforce imports command
-    import_parser = subparsers.add_parser("imports", help="Enforce import standards")
+    subparsers.add_parser("imports", help="Enforce import standards")
 
     # Monitor performance command
     performance_parser = subparsers.add_parser(
@@ -119,25 +122,23 @@ def parse_args() -> argparse.Namespace:
         "-d",
         "--duration",
         help="Duration to monitor in seconds (default: 3600)",
-    security_parser = subparsers.add_parser("security",
-        help="Scan for security issues")
         default=3600,
     )
 
     # Scan security command
-    security_parser = subparsers.add_parser("security", help="Scan for security issues")
+    subparsers.add_parser("security", help="Scan for security issues")
 
     # Generate tasks command
-    task_parser = subparsers.add_parser("tasks", help="Generate task list")
+    subparsers.add_parser("tasks", help="Generate task list")
 
     # Analyze codebase command
-    analyze_parser = subparsers.add_parser("analyze", help="Analyze codebase")
+    subparsers.add_parser("analyze", help="Analyze codebase")
 
     # Run all checks command
-    all_parser = subparsers.add_parser("all", help="Run all PS2 checks")
+    subparsers.add_parser("all", help="Run all PS2 checks")
 
     # Install git hooks command
-    hooks_parser = subparsers.add_parser("hooks", help="Install PS2 git hooks")
+    subparsers.add_parser("hooks", help="Install PS2 git hooks")
 
     # Setup CI pipeline command
     ci_parser = subparsers.add_parser("ci", help="Set up CI pipeline")
@@ -169,25 +170,133 @@ def setup_logging(verbose: bool, no_color: bool) -> logging.Logger:
     if no_color:
         logging.basicConfig(
             level=log_level,
-            format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
-            datefmt="%H:%M:%S",
+            format=LOG_FORMAT,
+            datefmt=LOG_DATE_FORMAT,
         )
     else:
         try:
-
             coloredlogs.install(
                 level=log_level,
-                fmt="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
-                datefmt="%H:%M:%S",
+                fmt=LOG_FORMAT,
+                datefmt=LOG_DATE_FORMAT,
             )
         except ImportError:
             logging.basicConfig(
                 level=log_level,
-                format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
-                datefmt="%H:%M:%S",
+                format=LOG_FORMAT,
+                datefmt=LOG_DATE_FORMAT,
             )
 
     return logging.getLogger("ps2")
+
+
+def _get_plain_status_str(status: str) -> str:
+    """
+    Get a plain text status string.
+    
+    Args:
+        status: The status value from the result.
+        
+    Returns:
+        Formatted status string without color.
+    """
+    if status == "pass":
+        return "PASS"
+    elif status == "fail":
+        return "FAIL"
+    elif status == "fixed":
+        return "FIXED"
+    elif status == "info":
+        return "INFO"
+    else:
+        return status.upper() if status else "UNKNOWN"
+
+
+def _get_colored_status_str(status: str) -> str:
+    """
+    Get a colored status string.
+    
+    Args:
+        status: The status value from the result.
+        
+    Returns:
+        Formatted status string with color.
+    """
+    from colorama import Fore, Style
+    
+    if status == "pass":
+        return f"{Fore.GREEN}PASS{Style.RESET_ALL}"
+    elif status == "fail":
+        return f"{Fore.RED}FAIL{Style.RESET_ALL}"
+    elif status == "fixed":
+        return f"{Fore.YELLOW}FIXED{Style.RESET_ALL}"
+    elif status == "info":
+        return f"{Fore.BLUE}INFO{Style.RESET_ALL}"
+    else:
+        return f"{Fore.WHITE}{status.upper() if status else 'UNKNOWN'}{Style.RESET_ALL}"
+
+
+def _print_dict_value(field: str, value: dict) -> None:
+    """
+    Print a dictionary value with proper formatting.
+    
+    Args:
+        field: The field name.
+        value: The dictionary value to print.
+    """
+    print(f"  {field}:")
+    for k, v in value.items():
+        print(f"    {k}: {v}")
+
+
+def _print_list_value(field: str, value: list) -> None:
+    """
+    Print a list value with proper formatting.
+    
+    Args:
+        field: The field name.
+        value: The list value to print.
+    """
+    print(f"  {field}: {len(value)} items")
+    if len(value) <= 5:
+        for item in value:
+            if isinstance(item, dict):
+                for k, v in item.items():
+                    print(f"    {k}: {v}")
+                print()
+            else:
+                print(f"    {item}")
+
+
+def _print_header(result: Dict, status_str: str) -> None:
+    """
+    Print the header (status and message) of a result.
+    
+    Args:
+        result: The result dictionary.
+        status_str: The formatted status string.
+    """
+    print(f"Status: {status_str}")
+    print(f"Message: {result.get('message', '')}")
+
+
+def _print_details(result: Dict) -> None:
+    """
+    Print the details section of a result.
+    
+    Args:
+        result: The result dictionary.
+    """
+    if extra_fields := [k for k in result.keys() if k not in ["status", "message"]]:
+        print("\nDetails:")
+        for field in extra_fields:
+            field_value = result[field]
+            if isinstance(field_value, dict) and field_value:
+                _print_dict_value(field, field_value)
+            elif isinstance(field_value, list) and field_value:
+                _print_list_value(field, field_value)
+            else:
+                print(f"  {field}: {field_value}")
 
 
 def print_result(result: Dict, no_color: bool) -> None:
@@ -198,72 +307,117 @@ def print_result(result: Dict, no_color: bool) -> None:
         result: Result dictionary to print.
         no_color: Whether to disable colored output.
     """
+    status = result.get("status")
+    
     if no_color:
-        if result.get("status") == "pass":
-            status_str = "PASS"
-        elif result.get("status") == "fail":
-            status_str = "FAIL"
-        elif result.get("status") == "fixed":
-            status_str = "FIXED"
-        elif result.get("status") == "info":
-            status_str = "INFO"
-        else:
-            status_str = result.get("status", "UNKNOWN").upper()
-
-        print(f"Status: {status_str}")
-        print(f"Message: {result.get('message', '')}")
+        status_str = _get_plain_status_str(status)
+        _print_header(result, status_str)
     else:
         try:
-            from colorama import (Fore, Style,  # TODO: Remove unused imports
-                                  init)
-
+            from colorama import init
             init()
-            from colorama import (  # TODO: Remove unused imports  # TODO: Line too long, needs manual fixing  # TODO: Remove unused imports
-                Fore, Style, init)
-            if result.get("status") == "pass":
-                status_str = Fore.GREEN + "PASS" + Style.RESET_ALL
-            elif result.get("status") == "fail":
-                status_str = Fore.RED + "FAIL" + Style.RESET_ALL
-            elif result.get("status") == "fixed":
-            from colorama import (  # TODO: Remove unused imports  # TODO: Remove unused imports
-                Fore, Style, init)
-            elif result.get("status") == "info":
-                status_str = Fore.BLUE + "INFO" + Style.RESET_ALL
-            else:
-                status_str = (
-                    Fore.WHITE
-                    + result.get("status", "UNKNOWN").upper()
-                    + Style.RESET_ALL
-                )
-
-            print(f"Status: {status_str}")
-            print(f"Message: {result.get('message', '')}")
+            status_str = _get_colored_status_str(status)
+            _print_header(result, status_str)
         except ImportError:
             # Fall back to plain output
             print_result(result, True)
+            return
+    
+    _print_details(result)
 
-    # Print additional result fields if present
-    extra_fields = [k for k in result.keys() if k not in ["status", "message"]]
-    if extra_fields:
-        print("\nDetails:")
-        for field in extra_fields:
-            field_value = result[field]
-            if isinstance(field_value, dict) and field_value:
-                print(f"  {field}:")
-                for k, v in field_value.items():
-                    print(f"    {k}: {v}")
-            elif isinstance(field_value, list) and field_value:
-                print(f"  {field}: {len(field_value)} items")
-                if len(field_value) <= 5:
-                    for item in field_value:
-                        if isinstance(item, dict):
-                            for k, v in item.items():
-                                print(f"    {k}: {v}")
-                            print()
-                        else:
-                            print(f"    {item}")
-            else:
-                print(f"  {field}: {field_value}")
+
+def _handle_generate_command(ps2, args):
+    """
+    Handle the 'generate' command.
+    
+    Args:
+        ps2: PS2 instance
+        args: Command line arguments
+        
+    Returns:
+        Tuple of (result, exit_code)
+    """
+    result = ps2.generate_project(args.name, args.type)
+    print(f"Generated project at: {result}")
+    return None, 0
+
+
+def _handle_standard_command(ps2, args):
+    """
+    Handle standard commands that follow a simple pattern.
+    
+    Args:
+        ps2: PS2 instance
+        args: Command line arguments
+        
+    Returns:
+        Result from the command execution
+    """
+    if args.command == "check":
+        return ps2.check_code_quality(fix=args.fix), None
+    elif args.command == "conflicts":
+        return ps2.detect_conflicts(fix=args.fix), None
+    elif args.command == "dependencies":
+        return ps2.manage_dependencies(update=args.update), None
+    elif args.command == "duplications":
+        return ps2.detect_duplications(fix=args.fix), None
+    elif args.command == "imports":
+        return ps2.enforce_imports(fix=args.fix), None
+    elif args.command == "performance":
+        return ps2.monitor_performance(duration=args.duration), None
+    elif args.command == "security":
+        return ps2.scan_security(fix=args.fix), None
+    elif args.command == "tasks":
+        return ps2.generate_tasks(), None
+    elif args.command == "analyze":
+        return ps2.analyze_codebase(), None
+    elif args.command == "all":
+        return ps2.run_all_checks(fix=args.fix), None
+    
+    return None, None
+
+
+def _handle_hooks_command(ps2):
+    """
+    Handle the 'hooks' command.
+    
+    Args:
+        ps2: PS2 instance
+        
+    Returns:
+        Result dictionary
+    """
+    success = ps2.install_git_hooks()
+    return {
+        "status": "pass" if success else "fail",
+        "message": (
+            "Git hooks installed successfully"
+            if success
+            else "Failed to install git hooks"
+        ),
+    }
+
+
+def _handle_ci_command(ps2, args):
+    """
+    Handle the 'ci' command.
+    
+    Args:
+        ps2: PS2 instance
+        args: Command line arguments
+        
+    Returns:
+        Result dictionary
+    """
+    success = ps2.setup_ci_pipeline(ci_type=args.type)
+    return {
+        "status": "pass" if success else "fail",
+        "message": (
+            f"{args.type.capitalize()} CI pipeline configured successfully"
+            if success
+            else f"Failed to configure {args.type} CI pipeline"
+        ),
+    }
 
 
 def main() -> int:
@@ -295,81 +449,39 @@ def main() -> int:
 
     # Execute command
     try:
+        result = None
+        exit_code = None
+        
+        # Handle generate command (special case with early return)
         if args.command == "generate":
-            result = ps2.generate_project(args.name, args.type)
-            print(f"Generated project at: {result}")
-            return 0
-
-        elif args.command == "check":
-            result = ps2.check_code_quality(fix=args.fix)
-
-        elif args.command == "conflicts":
-            result = ps2.detect_conflicts(fix=args.fix)
-
-        elif args.command == "dependencies":
-            result = ps2.manage_dependencies(update=args.update)
-
-        elif args.command == "duplications":
-            result = ps2.detect_duplications(fix=args.fix)
-
-        elif args.command == "imports":
-            result = ps2.enforce_imports(fix=args.fix)
-
-        elif args.command == "performance":
-            result = ps2.monitor_performance(duration=args.duration)
-
-        elif args.command == "security":
-            result = ps2.scan_security(fix=args.fix)
-
-        elif args.command == "tasks":
-            result = ps2.generate_tasks()
-
-        elif args.command == "analyze":
-            result = ps2.analyze_codebase()
-
-        elif args.command == "all":
-            result = ps2.run_all_checks(fix=args.fix)
-
+            _, exit_code = _handle_generate_command(ps2, args)
+            return exit_code
+        
+        # Handle hooks command
         elif args.command == "hooks":
-            success = ps2.install_git_hooks()
-            result = {
-                "status": "pass" if success else "fail",
-                "message": (
-                    "Git hooks installed successfully"
-                    if success
-                    else "Failed to install git hooks"
-                ),
-            }
-
+            result = _handle_hooks_command(ps2)
+        
+        # Handle CI command
         elif args.command == "ci":
-            success = ps2.setup_ci_pipeline(ci_type=args.type)
-            result = {
-                "status": "pass" if success else "fail",
-                "message": (
-                    f"{args.type.capitalize()} CI pipeline configured successfully"
-                    if success
-                    else f"Failed to configure {args.type} CI pipeline"
-                ),
-            }
-
+            result = _handle_ci_command(ps2, args)
+        
+        # Handle standard commands
         else:
-            # No command specified, show help
-            print("No command specified. Use --help for available commands.")
-            return 0
+            result, exit_code = _handle_standard_command(ps2, args)
+            
+            # If no command matched
+            if result is None:
+                print("No command specified. Use --help for available commands.")
+                return 0
 
         # Print result
         print_result(result, args.no_color)
 
         # Return exit code based on result status
-        if result.get("status") in ["pass", "fixed", "info"]:
-            return 0
-        else:
-            return 1
-
+        return 0 if result.get("status") in ["pass", "fixed", "info"] else 1
     except Exception as e:
         logger.error(f"Command failed: {e}")
         if args.verbose:
-
             traceback.print_exc()
         return 1
 
