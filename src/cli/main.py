@@ -34,7 +34,7 @@ def parse_args() -> argparse.Namespace:
         Parsed arguments namespace.
     """
     parser = argparse.ArgumentParser(
-        description = """
+        description="""
             Python Standards Suite (PS2) - Enforce Python coding standards
         """
     )
@@ -107,9 +107,7 @@ def parse_args() -> argparse.Namespace:
     )
 
     # Detect duplications command
-    subparsers.add_parser(
-        "duplications", help="Detect code duplications"
-    )
+    subparsers.add_parser("duplications", help="Detect code duplications")
 
     # Enforce imports command
     subparsers.add_parser("imports", help="Enforce import standards")
@@ -193,10 +191,10 @@ def setup_logging(verbose: bool, no_color: bool) -> logging.Logger:
 def _get_plain_status_str(status: str) -> str:
     """
     Get a plain text status string.
-    
+
     Args:
         status: The status value from the result.
-        
+
     Returns:
         Formatted status string without color.
     """
@@ -215,15 +213,15 @@ def _get_plain_status_str(status: str) -> str:
 def _get_colored_status_str(status: str) -> str:
     """
     Get a colored status string.
-    
+
     Args:
         status: The status value from the result.
-        
+
     Returns:
         Formatted status string with color.
     """
     from colorama import Fore, Style
-    
+
     if status == "pass":
         return f"{Fore.GREEN}PASS{Style.RESET_ALL}"
     elif status == "fail":
@@ -239,7 +237,7 @@ def _get_colored_status_str(status: str) -> str:
 def _print_dict_value(field: str, value: dict) -> None:
     """
     Print a dictionary value with proper formatting.
-    
+
     Args:
         field: The field name.
         value: The dictionary value to print.
@@ -252,7 +250,7 @@ def _print_dict_value(field: str, value: dict) -> None:
 def _print_list_value(field: str, value: list) -> None:
     """
     Print a list value with proper formatting.
-    
+
     Args:
         field: The field name.
         value: The list value to print.
@@ -271,7 +269,7 @@ def _print_list_value(field: str, value: list) -> None:
 def _print_header(result: Dict, status_str: str) -> None:
     """
     Print the header (status and message) of a result.
-    
+
     Args:
         result: The result dictionary.
         status_str: The formatted status string.
@@ -283,7 +281,7 @@ def _print_header(result: Dict, status_str: str) -> None:
 def _print_details(result: Dict) -> None:
     """
     Print the details section of a result.
-    
+
     Args:
         result: The result dictionary.
     """
@@ -308,13 +306,14 @@ def print_result(result: Dict, no_color: bool) -> None:
         no_color: Whether to disable colored output.
     """
     status = result.get("status")
-    
+
     if no_color:
         status_str = _get_plain_status_str(status)
         _print_header(result, status_str)
     else:
         try:
             from colorama import init
+
             init()
             status_str = _get_colored_status_str(status)
             _print_header(result, status_str)
@@ -322,18 +321,18 @@ def print_result(result: Dict, no_color: bool) -> None:
             # Fall back to plain output
             print_result(result, True)
             return
-    
+
     _print_details(result)
 
 
 def _handle_generate_command(ps2, args):
     """
     Handle the 'generate' command.
-    
+
     Args:
         ps2: PS2 instance
         args: Command line arguments
-        
+
     Returns:
         Tuple of (result, exit_code)
     """
@@ -345,11 +344,11 @@ def _handle_generate_command(ps2, args):
 def _handle_standard_command(ps2, args):
     """
     Handle standard commands that follow a simple pattern.
-    
+
     Args:
         ps2: PS2 instance
         args: Command line arguments
-        
+
     Returns:
         Result from the command execution
     """
@@ -373,17 +372,17 @@ def _handle_standard_command(ps2, args):
         return ps2.analyze_codebase(), None
     elif args.command == "all":
         return ps2.run_all_checks(fix=args.fix), None
-    
+
     return None, None
 
 
 def _handle_hooks_command(ps2):
     """
     Handle the 'hooks' command.
-    
+
     Args:
         ps2: PS2 instance
-        
+
     Returns:
         Result dictionary
     """
@@ -401,11 +400,11 @@ def _handle_hooks_command(ps2):
 def _handle_ci_command(ps2, args):
     """
     Handle the 'ci' command.
-    
+
     Args:
         ps2: PS2 instance
         args: Command line arguments
-        
+
     Returns:
         Result dictionary
     """
@@ -451,24 +450,24 @@ def main() -> int:
     try:
         result = None
         exit_code = None
-        
+
         # Handle generate command (special case with early return)
         if args.command == "generate":
             _, exit_code = _handle_generate_command(ps2, args)
             return exit_code
-        
+
         # Handle hooks command
         elif args.command == "hooks":
             result = _handle_hooks_command(ps2)
-        
+
         # Handle CI command
         elif args.command == "ci":
             result = _handle_ci_command(ps2, args)
-        
+
         # Handle standard commands
         else:
             result, exit_code = _handle_standard_command(ps2, args)
-            
+
             # If no command matched
             if result is None:
                 print("No command specified. Use --help for available commands.")

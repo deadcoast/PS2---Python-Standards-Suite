@@ -4,6 +4,7 @@ Dependency Manager Module for PS2.
 This module manages Python project dependencies, handling requirements.txt
 generation, virtual environment management, and dependency conflict resolution.
 """
+
 import contextlib
 import datetime
 import json
@@ -22,11 +23,11 @@ import tomli
 
 class DependencyManager:
     """
-    Manager for Python project dependencies.
+        Manager for Python project dependencies.
 
-    This class handles requirements.txt generation, virtual environment
-    management, and dependency conflict resolution, ensuring consistent
-from typing import Dict, List, Set, Tuple, Any, Optional, Union  # TODO: Remove unused imports  # TODO: Line too long, needs manual fixing  # TODO: Remove unused imports
+        This class handles requirements.txt generation, virtual environment
+        management, and dependency conflict resolution, ensuring consistent
+    from typing import Dict, List, Set, Tuple, Any, Optional, Union  # TODO: Remove unused imports  # TODO: Line too long, needs manual fixing  # TODO: Remove unused imports
     """
 
     def __init__(self, project_path: Union[str, Path], config: Dict):
@@ -244,8 +245,9 @@ from typing import Dict, List, Set, Tuple, Any, Optional, Union  # TODO: Remove 
         self.logger.info(f"Found {len(requirements_files)} requirements files")
         return requirements_files
 
-    def _parse_requirements(self,
-        requirements_files: List[Path]) -> Dict[str, Dict[str, List[str]]]:
+    def _parse_requirements(
+        self, requirements_files: List[Path]
+    ) -> Dict[str, Dict[str, List[str]]]:
         """
         Parse requirements from files.
 
@@ -335,7 +337,9 @@ from typing import Dict, List, Set, Tuple, Any, Optional, Union  # TODO: Remove 
             if install_requires_match := re.search(
                 r"install_requires\s*=\s*\[(.*?)\]", content, re.DOTALL
             ):
-                for package in re.finditer(r"['\"]([^'\"]+)['\"]", install_requires_match[1]):
+                for package in re.finditer(
+                    r"['\"]([^'\"]+)['\"]", install_requires_match[1]
+                ):
                     package_str = package.group(1)
 
                     try:
@@ -371,7 +375,6 @@ from typing import Dict, List, Set, Tuple, Any, Optional, Union  # TODO: Remove 
             requirements: Dictionary to update with parsed requirements.
         """
         try:
-
             with open(file_path, "rb") as f:
                 data = tomli.load(f)
 
@@ -454,7 +457,6 @@ from typing import Dict, List, Set, Tuple, Any, Optional, Union  # TODO: Remove 
             requirements: Dictionary to update with parsed requirements.
         """
         try:
-
             with open(file_path, "r", encoding="utf-8") as f:
                 data = toml.load(f)
 
@@ -514,7 +516,9 @@ from typing import Dict, List, Set, Tuple, Any, Optional, Union  # TODO: Remove 
         except (UnicodeDecodeError, PermissionError, toml.TomlDecodeError) as e:
             self.logger.warning(f"Could not read {file_path}: {e}")
 
-    def _find_unused_dependencies(self, imports: Dict[str, Set[str]], requirements: Dict) -> List[Dict]:
+    def _find_unused_dependencies(
+        self, imports: Dict[str, Set[str]], requirements: Dict
+    ) -> List[Dict]:
         """
         Find unused dependencies.
 
@@ -554,7 +558,9 @@ from typing import Dict, List, Set, Tuple, Any, Optional, Union  # TODO: Remove 
 
         return unused
 
-    def _find_missing_dependencies(self, imports: Dict[str, Set[str]], requirements: Dict) -> List[Dict]:
+    def _find_missing_dependencies(
+        self, imports: Dict[str, Set[str]], requirements: Dict
+    ) -> List[Dict]:
         """
         Find missing dependencies.
 
@@ -578,9 +584,7 @@ from typing import Dict, List, Set, Tuple, Any, Optional, Union  # TODO: Remove 
             )
 
             # Check if any package name is in requirements
-            if all(
-                package_name not in requirements for package_name in package_names
-            ):
+            if all(package_name not in requirements for package_name in package_names):
                 package_name = next(iter(package_names), import_name)
                 missing.append(
                     {
@@ -755,10 +759,7 @@ from typing import Dict, List, Set, Tuple, Any, Optional, Union  # TODO: Remove 
 
         # Create main requirements file if it doesn't exist
         if not main_requirements.exists() and (missing or outdated):
-            self._update_requirements_txt(dev_requirements,
-                missing,
-                outdated,
-                dev=True)
+            self._update_requirements_txt(dev_requirements, missing, outdated, dev=True)
             updated_files.append(str(dev_requirements))
 
         # Update existing requirements files
@@ -802,7 +803,9 @@ from typing import Dict, List, Set, Tuple, Any, Optional, Union  # TODO: Remove 
             for line in lines:
                 line = line.strip()
                 if line and not line.startswith("#") and not line.startswith("-"):
-                    with contextlib.suppress(ValueError, pkg_resources.RequirementParseError):
+                    with contextlib.suppress(
+                        ValueError, pkg_resources.RequirementParseError
+                    ):
                         req = pkg_resources.Requirement.parse(line)
                         existing_packages[req.name] = line
             # Update with missing packages
@@ -857,9 +860,7 @@ from typing import Dict, List, Set, Tuple, Any, Optional, Union  # TODO: Remove 
             if result.returncode == 0:
                 # Parse output to find the latest version
                 output = result.stdout
-                if version_match := re.search(
-                    r"Available versions: ([\d\.]+)", output
-                ):
+                if version_match := re.search(r"Available versions: ([\d\.]+)", output):
                     return version_match[1]
 
         except (subprocess.SubprocessError, TimeoutError) as e:

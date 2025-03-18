@@ -5,7 +5,10 @@ This package provides templates for generating documentation for Python projects
 """
 
 from typing import (  # TODO: Remove unused imports; TODO: Remove unused imports  # TODO: Remove unused imports
-    Any, Dict, List)
+    Any,
+    Dict,
+    List,
+)
 
 TEMPLATES_DIR = Path(__file__).parent
 

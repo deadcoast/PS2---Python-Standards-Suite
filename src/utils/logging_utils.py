@@ -6,8 +6,16 @@ throughout the PS2 system, including decorators for function call logging
 and execution time tracking.
 """
 
-from typing import (Any, Callable, Dict, List,  # TODO: Remove unused imports
-                    Optional, TypeVar, Union, cast)
+
+import sys
+import logging
+from contextlib import suppress
+from typing import (Any, Callable, Optional, TypeVar, Union, cast)
+from pathlib import Path
+from logging.handlers import RotatingFileHandler
+from time import time
+from functools import wraps
+from coloredlogs import coloredlogs
 
 # Type variable for decorator return types
 F = TypeVar("F", bound=Callable[..., Any])
@@ -17,9 +25,7 @@ def setup_logging(
     level: int = logging.INFO,
     log_file: Optional[Union[str, Path]] = None,
     log_format: str = "%(asctime)s - %(name)s - %(levelname)s - %(message)s",
-from typing import (  # TODO: Remove unused imports  # TODO: Line too long, needs manual fixing  # TODO: Remove unused imports
-    Any, Callable, Dict, List, Optional, TypeVar, Union, cast)
-
+    date_format: str = "%Y-%m-%dT%H:%M:%S%z",
     use_colors: bool = True,
     max_file_size: int = 10 * 1024 * 1024,  # 10 MB
     backup_count: int = 5,
@@ -59,17 +65,14 @@ from typing import (  # TODO: Remove unused imports  # TODO: Line too long, need
 
     # Use colored output if requested and supported
     if use_colors:
-        try:
-
+        # Try to install coloredlogs
+        with suppress(ImportError):
             coloredlogs.install(
-                level = (
-                    level, logger=root_logger, fmt=log_format, datefmt=date_format
-                )
+                level=level,
+                logger=root_logger,
+                fmt=log_format,
+                datefmt=date_format,
             )
-        except ImportError:
-            # Fall back to standard logging if coloredlogs is not available
-            pass
-
     # Create file handler if log file is specified
     if log_file:
         # Ensure the log directory exists

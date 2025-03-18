@@ -6,14 +6,15 @@ simplifying common tasks like finding project roots, reading and writing
 files, and locating modules.
 """
 
-from typing import (Any, Dict, Iterator, List,  # TODO: Remove unused imports
-                    Optional, Set, Union)
+import os
+import fnmatch
+
+from typing import List, Optional, Union
+from pathlib import Path
 
 
 def get_project_root(start_dir: Union[str, Path] = None) -> Path:
-from typing import (  # TODO: Remove unused imports  # TODO: Line too long, needs manual fixing  # TODO: Remove unused imports
-    Any, Dict, Iterator, List, Optional, Set, Union)
-
+    """
     Find the project root directory based on common markers.
 
     Starts from the given directory (or current directory if None) and
@@ -25,11 +26,7 @@ from typing import (  # TODO: Remove unused imports  # TODO: Line too long, need
     Returns:
         Path to the project root directory.
     """
-    if start_dir is None:
-        start_dir = Path.cwd()
-    else:
-        start_dir = Path(start_dir).absolute()
-
+    start_dir = Path.cwd() if start_dir is None else Path(start_dir).absolute()
     # Common project root markers
     root_markers = [
         ".git",
@@ -70,9 +67,7 @@ def is_python_file(file_path: Union[str, Path]) -> bool:
     return str(file_path).endswith(".py")
 
 
-def read_file_content(file_path: Union[str,
-    Path],
-    encoding: str = "utf-8")
+def read_file_content(file_path: Union[str, Path], encoding: str = "utf-8") -> str:
     """
     Read the content of a file.
 
@@ -169,8 +164,7 @@ def find_files_by_pattern(
                     file_path = Path(root) / file
                     rel_path = file_path.relative_to(directory)
 
-                        fnmatch.fnmatch(str(rel_path),
-                            ep)
+                    # Skip excluded files
                     if any(
                         fnmatch.fnmatch(str(rel_path), ep) for ep in exclude_patterns
                     ):
@@ -205,11 +199,7 @@ def get_module_path(
     Returns:
         Path to the module file, or None if not found.
     """
-    if base_dir is None:
-        base_dir = get_project_root()
-    else:
-        base_dir = Path(base_dir)
-
+    base_dir = get_project_root() if base_dir is None else Path(base_dir)
     # Convert module name to path
     module_parts = module_name.split(".")
 

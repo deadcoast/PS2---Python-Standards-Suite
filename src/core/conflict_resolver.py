@@ -211,9 +211,7 @@ class ConflictResolver:
                 "file": file_path,
                 "name": module_name,
                 "type": "module",
-                "convention": self._check_naming_convention(
-                    module_name.split(".")[-1]
-                ),
+                "convention": self._check_naming_convention(module_name.split(".")[-1]),
             }
 
             # Process AST nodes to extract names
@@ -222,7 +220,9 @@ class ConflictResolver:
         self._naming_registry = registry
         return registry
 
-    def _create_class_entry(self, class_name: str, module_name: str, node: ast.ClassDef, tree: ast.Module) -> Dict:
+    def _create_class_entry(
+        self, class_name: str, module_name: str, node: ast.ClassDef, tree: ast.Module
+    ) -> Dict:
         """Create a class entry for the registry."""
         qualified_name = f"{module_name}.{class_name}"
         return {
@@ -234,8 +234,15 @@ class ConflictResolver:
             "type": "class",
             "convention": self._check_naming_convention(class_name),
         }
-    
-    def _create_method_entry(self, func_name: str, class_name: str, module_name: str, node: ast.FunctionDef, tree: ast.Module) -> Dict:
+
+    def _create_method_entry(
+        self,
+        func_name: str,
+        class_name: str,
+        module_name: str,
+        node: ast.FunctionDef,
+        tree: ast.Module,
+    ) -> Dict:
         """Create a method entry for the registry."""
         qualified_name = f"{module_name}.{class_name}.{func_name}"
         return {
@@ -248,8 +255,10 @@ class ConflictResolver:
             "type": "method",
             "convention": self._check_naming_convention(func_name),
         }
-    
-    def _create_function_entry(self, func_name: str, module_name: str, node: ast.FunctionDef, tree: ast.Module) -> Dict:
+
+    def _create_function_entry(
+        self, func_name: str, module_name: str, node: ast.FunctionDef, tree: ast.Module
+    ) -> Dict:
         """Create a function entry for the registry."""
         qualified_name = f"{module_name}.{func_name}"
         return {
@@ -261,10 +270,21 @@ class ConflictResolver:
             "type": "function",
             "convention": self._check_naming_convention(func_name),
         }
-    
-    def _create_variable_entry(self, var_name: str, module_name: str, scope: str, node: ast.Assign, is_constant: bool) -> Dict:
+
+    def _create_variable_entry(
+        self,
+        var_name: str,
+        module_name: str,
+        scope: str,
+        node: ast.Assign,
+        is_constant: bool,
+    ) -> Dict:
         """Create a variable or constant entry for the registry."""
-        qualified_name = f"{module_name}.{scope}.{var_name}" if scope else f"{module_name}.{var_name}"
+        qualified_name = (
+            f"{module_name}.{scope}.{var_name}"
+            if scope
+            else f"{module_name}.{var_name}"
+        )
         entry_type = "constant" if is_constant else "variable"
         return {
             "name": var_name,
@@ -275,8 +295,16 @@ class ConflictResolver:
             "line": node.lineno,
             "type": entry_type,
         }
-    
-    def _create_import_entry(self, name: str, asname: str, module_name: str, imported_from: str, node: ast.AST, tree: ast.Module) -> Dict:
+
+    def _create_import_entry(
+        self,
+        name: str,
+        asname: str,
+        module_name: str,
+        imported_from: str,
+        node: ast.AST,
+        tree: ast.Module,
+    ) -> Dict:
         """Create an import entry for the registry."""
         qualified_name = f"{module_name}.{asname}"
         return {
@@ -289,7 +317,7 @@ class ConflictResolver:
             "type": "import",
             "convention": self._check_naming_convention(asname),
         }
-    
+
     def _extract_names_from_ast(
         self, tree: ast.Module, module_name: str, registry: Dict
     ) -> None:
@@ -330,15 +358,19 @@ class ConflictResolver:
                     class_name = class_stack[-1]
                     qualified_name = f"{module_name}.{class_name}.{func_name}"
 
-                    registry["methods"][qualified_name] = self.parent._create_method_entry(
-                        func_name, class_name, module_name, node, tree
+                    registry["methods"][qualified_name] = (
+                        self.parent._create_method_entry(
+                            func_name, class_name, module_name, node, tree
+                        )
                     )
                 else:
                     # This is a function
                     qualified_name = f"{module_name}.{func_name}"
 
-                    registry["functions"][qualified_name] = self.parent._create_function_entry(
-                        func_name, module_name, node, tree
+                    registry["functions"][qualified_name] = (
+                        self.parent._create_function_entry(
+                            func_name, module_name, node, tree
+                        )
                     )
 
                 # Visit function body
@@ -348,17 +380,17 @@ class ConflictResolver:
                 """Process a name target in an assignment."""
                 if not isinstance(target, ast.Name):
                     return
-                    
+
                 var_name = target.id
                 scope = class_stack[-1] if class_stack else None
                 is_constant = var_name.isupper()
                 entry = self.parent._create_variable_entry(
                     var_name, module_name, scope, node, is_constant
                 )
-                
+
                 registry_key = "constants" if is_constant else "variables"
                 registry[registry_key][entry["qualified_name"]] = entry
-            
+
             def visit_Assign(self, node):
                 for target in node.targets:
                     self._process_name_target(target, node)
@@ -368,7 +400,7 @@ class ConflictResolver:
                 for alias in node.names:
                     name = alias.name
                     asname = alias.asname or name
-                    
+
                     entry = self.parent._create_import_entry(
                         name, asname, module_name, name, node, tree
                     )
@@ -382,7 +414,7 @@ class ConflictResolver:
                         name = alias.name
                         asname = alias.asname or name
                         imported_from = f"{node.module}.{name}"
-                        
+
                         entry = self.parent._create_import_entry(
                             name, asname, module_name, imported_from, node, tree
                         )
@@ -408,14 +440,12 @@ class ConflictResolver:
             for module_name, module_info in registry["modules"].items()
             if self._is_builtin(module_name.split(".")[-1])
         ]
-    
+
     def _create_conflict_item(self, item: Dict, scope: str, name: str) -> Dict:
         """Create a conflict item entry."""
         return {
             "name": item["name"],
-            "qualified_name": item.get(
-                "qualified_name", f"{scope}.{name}"
-            ),
+            "qualified_name": item.get("qualified_name", f"{scope}.{name}"),
             "type": item["type"],
             "file": (
                 str(item["file"].relative_to(self.project_path))
@@ -424,8 +454,10 @@ class ConflictResolver:
             ),
             "line": item.get("line", 0),
         }
-    
-    def _create_name_conflict_entry(self, name: str, scope: str, items: List[Dict], is_protected: bool) -> Dict:
+
+    def _create_name_conflict_entry(
+        self, name: str, scope: str, items: List[Dict], is_protected: bool
+    ) -> Dict:
         """Create a name conflict entry."""
         return {
             "type": "name_conflict",
@@ -435,22 +467,24 @@ class ConflictResolver:
             "severity": "high" if is_protected else "medium",
             "fix_suggestion": f"Rename conflicting {'protected ' if is_protected else ''}name",
         }
-    
-    def _should_create_conflict_entry(self, items: List[Dict], is_protected: bool) -> bool:
+
+    def _should_create_conflict_entry(
+        self, items: List[Dict], is_protected: bool
+    ) -> bool:
         """Determine if a conflict entry should be created."""
         if len(items) <= 1:
             return False
-            
+
         return (
             is_protected
             or any(item["type"] != items[0]["type"] for item in items)
             or items[0]["type"] in ["method", "function"]
         )
-    
+
     def _find_scope_conflicts(self, scope_registry: Dict) -> List[Dict]:
         """Find conflicts within scopes."""
         conflicts = []
-        
+
         for scope, names in scope_registry.items():
             # Group by name
             names_by_name = defaultdict(list)
@@ -460,14 +494,16 @@ class ConflictResolver:
             # Check for conflicts
             for name, items in names_by_name.items():
                 is_protected = name in self.settings["protected_names"]
-                
+
                 if self._should_create_conflict_entry(items, is_protected):
                     conflicts.append(
-                        self._create_name_conflict_entry(name, scope, items, is_protected)
+                        self._create_name_conflict_entry(
+                            name, scope, items, is_protected
+                        )
                     )
-        
+
         return conflicts
-    
+
     def _check_for_conflicts(self, registry: Dict) -> List[Dict]:
         """
         Check for naming conflicts in the registry.
@@ -482,7 +518,7 @@ class ConflictResolver:
 
         # Find conflicts with built-ins
         conflicts = self._find_builtin_conflicts(registry)
-        
+
         # Build name registry by scope
         scope_registry = self._build_scope_registry(registry)
 
@@ -496,8 +532,14 @@ class ConflictResolver:
 
         return conflicts
 
-
-    def _create_import_conflict_entry(self, import_name: str, module: str, qualified_name: str, import_info: Dict, item: Dict) -> Dict:
+    def _create_import_conflict_entry(
+        self,
+        import_name: str,
+        module: str,
+        qualified_name: str,
+        import_info: Dict,
+        item: Dict,
+    ) -> Dict:
         """Create an import conflict entry."""
         return {
             "type": "import_conflict",
@@ -505,13 +547,15 @@ class ConflictResolver:
             "scope": module,
             "items": [
                 self._create_import_item(import_name, qualified_name, import_info),
-                self._create_conflicting_item(item, module)
+                self._create_conflicting_item(item, module),
             ],
             "severity": "medium",
             "fix_suggestion": "Rename import using 'as' or rename the conflicting name",
         }
 
-    def _create_import_item(self, import_name: str, qualified_name: str, import_info: Dict) -> Dict:
+    def _create_import_item(
+        self, import_name: str, qualified_name: str, import_info: Dict
+    ) -> Dict:
         """Create an import item for conflict entry."""
         return {
             "name": import_name,
@@ -526,9 +570,7 @@ class ConflictResolver:
         """Create a conflicting item for import conflict entry."""
         return {
             "name": item["name"],
-            "qualified_name": item.get(
-                "qualified_name", f"{module}.{item['name']}"
-            ),
+            "qualified_name": item.get("qualified_name", f"{module}.{item['name']}"),
             "type": item["type"],
             "file": (
                 str(item["file"].relative_to(self.project_path))
@@ -538,17 +580,22 @@ class ConflictResolver:
             "fix_suggestion": "Rename import using 'as' or rename the conflicting name",
         }
 
-    def _find_conflicting_items(self, module: str, import_name: str, scope_registry: Dict) -> List[Dict]:
+    def _find_conflicting_items(
+        self, module: str, import_name: str, scope_registry: Dict
+    ) -> List[Dict]:
         """Find items that conflict with an import."""
         if module not in scope_registry:
             return []
-            
+
         return [
-            item for item in scope_registry[module]
+            item
+            for item in scope_registry[module]
             if item["name"] == import_name and item["type"] != "import"
         ]
 
-    def _check_import_conflicts(self, registry: Dict, scope_registry: Dict) -> List[Dict]:
+    def _check_import_conflicts(
+        self, registry: Dict, scope_registry: Dict
+    ) -> List[Dict]:
         """
         Check for conflicts between imports and other names.
 
@@ -564,16 +611,22 @@ class ConflictResolver:
         for qualified_name, import_info in registry["imports"].items():
             module = import_info["module"]
             import_name = import_info["name"]
-            
+
             # Find conflicting items
-            conflicting_items = self._find_conflicting_items(module, import_name, scope_registry)
-            
+            conflicting_items = self._find_conflicting_items(
+                module, import_name, scope_registry
+            )
+
             # Create conflict entries
-            conflicts.extend([
-                self._create_import_conflict_entry(import_name, module, qualified_name, import_info, item)
-                for item in conflicting_items
-            ])
-                
+            conflicts.extend(
+                [
+                    self._create_import_conflict_entry(
+                        import_name, module, qualified_name, import_info, item
+                    )
+                    for item in conflicting_items
+                ]
+            )
+
         return conflicts
 
 

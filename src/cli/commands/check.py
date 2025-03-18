@@ -45,18 +45,14 @@ class CheckCommand:
         parser.add_argument(
             "--style", "-s", action="store_true", help="Check code style"
         )
-        parser.add_argument("--lint",
-            "-l",
-            action="store_true",
-            help="Check linting")
+        parser.add_argument("--lint", "-l", action="store_true", help="Check linting")
         parser.add_argument(
             "--type", "-t", action="store_true", help="Check type safety"
         )
-        parser.add_argument("--all",
-            "-a",
-            action="store_true",
-            help="Run all checks")
-        parser.add_argument("--doc", "-d", action="store_true", help="Check documentation")
+        parser.add_argument("--all", "-a", action="store_true", help="Run all checks")
+        parser.add_argument(
+            "--doc", "-d", action="store_true", help="Check documentation"
+        )
 
     @staticmethod
     def execute(args: argparse.Namespace, ps2: Any) -> int:
@@ -80,7 +76,6 @@ class CheckCommand:
         except Exception as e:
             print(f"Error checking code quality: {e}", file=sys.stderr)
             if args.verbose:
-
                 traceback.print_exc()
             return 1
 

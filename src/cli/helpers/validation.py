@@ -20,6 +20,8 @@ from typing import Tuple
     Returns:
         Tuple of (is_valid, message).
     """
+
+
 def validate_project_name(name: str) -> Tuple[bool, str]:
     # Check if name is valid Python package name
     if not re.match(r"^[a-zA-Z]\w*$", name):

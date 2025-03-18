@@ -5,14 +5,15 @@ This module provides utility functions for tracking, storing, and analyzing
 metrics throughout the PS2 system, enabling performance monitoring and
 resource usage tracking.
 """
-
-from typing import (Any, Dict, List, Optional,  # TODO: Remove unused imports
-                    Tuple, Union)
+import time
+import json
+import statistics
+from pathlib import Path
+from datetime import datetime
+from typing import (Any, Dict, List, Optional, Tuple, Union)
 
 # Global metrics storage
 _metrics: Dict[str, List[Dict[str, Any]]] = {}
-from typing import (  # TODO: Remove unused imports  # TODO: Line too long, needs manual fixing  # TODO: Remove unused imports
-    Any, Dict, List, Optional, Tuple, Union)
 
 
 def track_metric(
@@ -157,8 +158,9 @@ def calculate_percentile(
 
     # Calculate percentile
     try:
+        # Use statistics.quantiles for larger datasets
         percentile_value = statistics.quantiles(values,
-            n=100)[int(percentile)
+            n=100)[int(percentile)]
     except (statistics.StatisticsError, IndexError):
         # Fall back to more basic method for small samples
         values.sort()

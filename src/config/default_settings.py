@@ -20,6 +20,7 @@ YAML_EXT = ".yaml"
 YML_EXT = ".yml"
 TOML_EXT = ".toml"
 
+
 def get_default_config() -> Dict[str, Any]:
     """
     Get the default configuration for PS2.

@@ -7,7 +7,12 @@ communication platforms.
 """
 
 from typing import (  # TODO: Remove unused imports; TODO: Remove unused imports  # TODO: Line too long, needs manual fixing  # TODO: Remove unused imports
-    Any, Dict, List, Optional, Union)
+    Any,
+    Dict,
+    List,
+    Optional,
+    Union,
+)
 
 _configured_services = {}
 

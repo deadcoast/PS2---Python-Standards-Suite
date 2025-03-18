@@ -29,6 +29,7 @@ try:
     from src.core.project_generator import ProjectGenerator
     from src.core.security_scanner import SecurityScanner
     from src.core.task_manager import TaskManager
+
     # Import utilities
     from src.utils.logging_utils import setup_logging
     from src.utils.path_utils import get_project_root
@@ -45,6 +46,7 @@ except ImportError:
     from core.project_generator import ProjectGenerator
     from core.security_scanner import SecurityScanner
     from core.task_manager import TaskManager
+
     # Import utilities
     from utils.logging_utils import setup_logging
     from utils.path_utils import get_project_root

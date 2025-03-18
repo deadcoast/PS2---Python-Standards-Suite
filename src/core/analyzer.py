@@ -387,29 +387,31 @@ class CodeAnalyzer:
     def _count_control_structures(self, node: ast.AST) -> int:
         """
         Count control structures that add to cyclomatic complexity.
-        
+
         Args:
             node: AST node to check
-            
+
         Returns:
             Complexity increment for this node
         """
-        if isinstance(node, (ast.If, ast.While, ast.For, ast.And, ast.Or, ast.ExceptHandler)):
+        if isinstance(
+            node, (ast.If, ast.While, ast.For, ast.And, ast.Or, ast.ExceptHandler)
+        ):
             return 1
         return 0
-    
+
     def _count_boolean_operations(self, node: ast.AST) -> int:
         """
         Count boolean operations that add to cyclomatic complexity.
-        
+
         Args:
             node: AST node to check
-            
+
         Returns:
             Complexity increment for boolean operations
         """
         return len(node.values) - 1 if isinstance(node, ast.BoolOp) else 0
-        
+
     def _calculate_cyclomatic_complexity(self, func: ast.FunctionDef) -> int:
         """
         Calculate cyclomatic complexity for a function.
@@ -432,33 +434,33 @@ class CodeAnalyzer:
     def _count_file_lines(self, file_path: Path) -> tuple[int, int]:
         """
         Count total lines and comment lines in a file.
-        
+
         Args:
             file_path: Path to the file
-            
+
         Returns:
             Tuple of (total_lines, comment_lines)
-            
+
         Raises:
             IOError: If the file cannot be read
             UnicodeDecodeError: If the file encoding is invalid
         """
         with open(file_path, "r", encoding="utf-8") as f:
             source_lines = f.readlines()
-            
+
         total_lines = len(source_lines)
         comment_lines = sum(bool(line.strip().startswith("#")) for line in source_lines)
-        
+
         return total_lines, comment_lines
-    
+
     def _calculate_comment_ratio(self, total_lines: int, comment_lines: int) -> float:
         """
         Calculate the ratio of comment lines to total lines.
-        
+
         Args:
             total_lines: Total number of lines in the file
             comment_lines: Number of comment lines in the file
-            
+
         Returns:
             Comment ratio as a float between 0 and 1
         """
@@ -477,7 +479,7 @@ class CodeAnalyzer:
         """
         try:
             total_lines, comment_lines = self._count_file_lines(file_path)
-            
+
             result["line_counts"][path_str] = total_lines
             result["comment_ratios"][path_str] = self._calculate_comment_ratio(
                 total_lines, comment_lines
@@ -488,7 +490,7 @@ class CodeAnalyzer:
     def _create_naming_patterns(self) -> Dict[str, re.Pattern]:
         """
         Create regex patterns for different naming conventions.
-        
+
         Returns:
             Dictionary of naming convention patterns
         """
@@ -498,11 +500,13 @@ class CodeAnalyzer:
             "pascal_case": re.compile(r"^[A-Z][a-zA-Z0-9]*$"),
             "screaming_snake_case": re.compile(r"^[A-Z][A-Z0-9_]*$"),
         }
-        
-    def _analyze_module_naming(self, file_path: Path, patterns: Dict[str, re.Pattern], result: Dict) -> None:
+
+    def _analyze_module_naming(
+        self, file_path: Path, patterns: Dict[str, re.Pattern], result: Dict
+    ) -> None:
         """
         Analyze the naming convention of a module.
-        
+
         Args:
             file_path: Path to the module file
             patterns: Dictionary of naming convention patterns
@@ -510,12 +514,20 @@ class CodeAnalyzer:
         """
         module_name = self._get_module_name(file_path)
         module_basename = os.path.basename(file_path).replace(".py", "")
-        result["modules"][module_name] = self._determine_naming_convention(module_basename, patterns)
-    
-    def _analyze_class_naming(self, node: ast.ClassDef, module_name: str, patterns: Dict[str, re.Pattern], result: Dict) -> None:
+        result["modules"][module_name] = self._determine_naming_convention(
+            module_basename, patterns
+        )
+
+    def _analyze_class_naming(
+        self,
+        node: ast.ClassDef,
+        module_name: str,
+        patterns: Dict[str, re.Pattern],
+        result: Dict,
+    ) -> None:
         """
         Analyze the naming convention of a class.
-        
+
         Args:
             node: Class definition node
             module_name: Name of the module containing the class
@@ -523,12 +535,20 @@ class CodeAnalyzer:
             result: Dictionary to store results
         """
         class_name = node.name
-        result["classes"][f"{module_name}.{class_name}"] = self._determine_naming_convention(class_name, patterns)
-    
-    def _analyze_function_naming(self, node: ast.FunctionDef, module_name: str, patterns: Dict[str, re.Pattern], result: Dict) -> None:
+        result["classes"][f"{module_name}.{class_name}"] = (
+            self._determine_naming_convention(class_name, patterns)
+        )
+
+    def _analyze_function_naming(
+        self,
+        node: ast.FunctionDef,
+        module_name: str,
+        patterns: Dict[str, re.Pattern],
+        result: Dict,
+    ) -> None:
         """
         Analyze the naming convention of a function.
-        
+
         Args:
             node: Function definition node
             module_name: Name of the module containing the function
@@ -538,12 +558,20 @@ class CodeAnalyzer:
         func_name = node.name
         if hasattr(node, "parent") and isinstance(node.parent, ast.ClassDef):
             func_name = f"{node.parent.name}.{func_name}"
-        result["functions"][f"{module_name}.{func_name}"] = self._determine_naming_convention(func_name, patterns)
-    
-    def _analyze_variable_naming(self, node: ast.Assign, module_name: str, patterns: Dict[str, re.Pattern], result: Dict) -> None:
+        result["functions"][f"{module_name}.{func_name}"] = (
+            self._determine_naming_convention(func_name, patterns)
+        )
+
+    def _analyze_variable_naming(
+        self,
+        node: ast.Assign,
+        module_name: str,
+        patterns: Dict[str, re.Pattern],
+        result: Dict,
+    ) -> None:
         """
         Analyze the naming convention of variables in an assignment.
-        
+
         Args:
             node: Assignment node
             module_name: Name of the module containing the variable
@@ -553,7 +581,9 @@ class CodeAnalyzer:
         for target in node.targets:
             if isinstance(target, ast.Name):
                 var_name = target.id
-                result["variables"][f"{module_name}.{var_name}"] = self._determine_naming_convention(var_name, patterns)
+                result["variables"][f"{module_name}.{var_name}"] = (
+                    self._determine_naming_convention(var_name, patterns)
+                )
 
     def _analyze_naming(self) -> Dict:
         """
@@ -578,7 +608,7 @@ class CodeAnalyzer:
         # For each AST, extract all named elements
         for file_path, tree in self._ast_cache.items():
             module_name = self._get_module_name(file_path)
-            
+
             # Analyze module naming
             self._analyze_module_naming(file_path, patterns, result)
 
@@ -600,10 +630,10 @@ class CodeAnalyzer:
     def _is_main_check_node(self, node: ast.AST) -> bool:
         """
         Check if a node is an if __name__ == "__main__" check.
-        
+
         Args:
             node: AST node to check
-            
+
         Returns:
             True if the node is a main check, False otherwise
         """
@@ -629,73 +659,73 @@ class CodeAnalyzer:
 
         # Check if the right side is a string
         return isinstance(node.test.comparators[0], ast.Str)
-    
+
     def _is_main_entry_point(self, node: ast.AST) -> bool:
         """
         Check if a node is an if __name__ == "__main__" entry point.
-        
+
         Args:
             node: AST node to check
-            
+
         Returns:
             True if the node is a main entry point, False otherwise
         """
         if not self._is_main_check_node(node):
             return False
-            
+
         # Additional check for "__main__" string value
         return (
-            len(node.test.ops) == 1 and
-            len(node.test.comparators) == 1 and
-            node.test.comparators[0].s == "__main__"
+            len(node.test.ops) == 1
+            and len(node.test.comparators) == 1
+            and node.test.comparators[0].s == "__main__"
         )
-    
+
     def _process_package_structure(self, file_path: Path) -> tuple[str, str]:
         """
         Process the package structure for a file.
-        
+
         Args:
             file_path: Path to the file
             tree: AST of the file
-            
+
         Returns:
             Tuple of (package_path, module_name)
         """
         relative_path = file_path.relative_to(self.project_path)
         package_path = (
-            str(relative_path.parent)
-            if relative_path.parent != Path(".")
-            else ""
+            str(relative_path.parent) if relative_path.parent != Path(".") else ""
         )
         module_name = relative_path.stem
-        
+
         return package_path, module_name
-    
+
     def _collect_packages(self) -> defaultdict:
         """
         Collect package structure information.
-        
+
         Returns:
             Dictionary of packages and their modules
         """
         packages = defaultdict(list)
-        
+
         for file_path, tree in self._ast_cache.items():
             for node in ast.walk(tree):
                 if self._is_main_check_node(node):
-                    package_path, module_name = self._process_package_structure(file_path)
-                    
+                    package_path, module_name = self._process_package_structure(
+                        file_path
+                    )
+
                     if package_path:
                         packages[package_path].append(module_name)
                     else:
                         packages["root"].append(module_name)
-        
+
         return packages
-    
+
     def _calculate_module_sizes(self, result: Dict) -> None:
         """
         Calculate the size of each module.
-        
+
         Args:
             result: Dictionary to store results
         """
@@ -703,29 +733,29 @@ class CodeAnalyzer:
             relative_path = file_path.relative_to(self.project_path)
             if file_path.exists():
                 result["module_sizes"][str(relative_path)] = file_path.stat().st_size
-    
+
     def _identify_entry_points(self, result: Dict) -> None:
         """
         Identify potential entry points in the codebase.
-        
+
         Args:
             result: Dictionary to store results
         """
         for file_path, tree in self._ast_cache.items():
             relative_path = file_path.relative_to(self.project_path)
-            
+
             for node in ast.walk(tree):
                 if self._is_main_entry_point(node):
                     result["entry_points"].append(str(relative_path))
-    
+
     def _is_module_level_function(self, node: ast.FunctionDef, tree: ast.AST) -> bool:
         """
         Check if a function is at module level (not a method).
-        
+
         Args:
             node: Function node to check
             tree: AST of the file
-            
+
         Returns:
             True if the function is at module level, False otherwise
         """
@@ -734,67 +764,67 @@ class CodeAnalyzer:
             for parent in ast.iter_child_nodes(tree)
             if hasattr(parent, "body") and node in parent.body
         )
-    
+
     def _is_public_node(self, node: ast.AST) -> bool:
         """
         Check if a node represents a public class or function.
-        
+
         Args:
             node: AST node to check
-            
+
         Returns:
             True if the node is public, False otherwise
         """
         return not node.name.startswith("_") if hasattr(node, "name") else False
-    
+
     def _collect_public_classes(self, tree: ast.AST) -> List[str]:
         """
         Collect names of public classes in an AST.
-        
+
         Args:
             tree: AST to analyze
-            
+
         Returns:
             List of public class names
         """
         return [
-            node.name 
-            for node in ast.walk(tree) 
+            node.name
+            for node in ast.walk(tree)
             if isinstance(node, ast.ClassDef) and self._is_public_node(node)
         ]
-    
+
     def _collect_public_functions(self, tree: ast.AST) -> List[str]:
         """
         Collect names of public module-level functions in an AST.
-        
+
         Args:
             tree: AST to analyze
-            
+
         Returns:
             List of public function names
         """
         return [
-            node.name 
-            for node in ast.walk(tree) 
-            if isinstance(node, ast.FunctionDef) 
-            and self._is_public_node(node) 
+            node.name
+            for node in ast.walk(tree)
+            if isinstance(node, ast.FunctionDef)
+            and self._is_public_node(node)
             and self._is_module_level_function(node, tree)
         ]
-    
+
     def _identify_api_surface(self, result: Dict) -> None:
         """
         Identify the public API surface of the codebase.
-        
+
         Args:
             result: Dictionary to store results
         """
         for file_path, tree in self._ast_cache.items():
             module_name = self._get_module_name(file_path)
-            
+
             # Collect public classes and functions
             classes = self._collect_public_classes(tree)
             functions = self._collect_public_functions(tree)
-            
+
             # Only add to results if there are public classes or functions
             if classes or functions:
                 result["api_surface"][module_name] = {
@@ -816,13 +846,13 @@ class CodeAnalyzer:
 
         # Initialize result dictionary
         result = {"module_sizes": {}, "entry_points": [], "api_surface": {}}
-        
+
         # Calculate module sizes
         self._calculate_module_sizes(result)
-        
+
         # Identify potential entry points
         self._identify_entry_points(result)
-        
+
         # Identify API surface (public functions and classes)
         self._identify_api_surface(result)
 
@@ -831,7 +861,7 @@ class CodeAnalyzer:
     def _create_pattern_definitions(self) -> tuple[Dict, Dict, Dict]:
         """
         Create definitions for design patterns, anti-patterns, and idioms.
-        
+
         Returns:
             Tuple of (design_patterns, anti_patterns, idioms) dictionaries
         """
@@ -889,13 +919,13 @@ class CodeAnalyzer:
             "dict_comprehension": [(ast.DictComp, lambda node: True)],
             "context_manager": [(ast.With, lambda node: True)],
         }
-        
+
         return design_patterns, anti_patterns, idioms
-    
+
     def _create_pattern_result_structure(self) -> Dict:
         """
         Create the initial result structure for pattern analysis.
-        
+
         Returns:
             Dictionary with pattern analysis structure
         """
@@ -905,17 +935,19 @@ class CodeAnalyzer:
             "common_idioms": defaultdict(int),
             "pattern_locations": [],  # Store detailed location information
         }
-    
-    def _create_pattern_info(self, pattern_name: str, pattern_type: str, node: ast.AST, file_path: str) -> Dict:
+
+    def _create_pattern_info(
+        self, pattern_name: str, pattern_type: str, node: ast.AST, file_path: str
+    ) -> Dict:
         """
         Create pattern information dictionary for a detected pattern.
-        
+
         Args:
             pattern_name: Name of the pattern
             pattern_type: Type of pattern (design_pattern or anti_pattern)
             node: AST node where pattern was detected
             file_path: Path to the file containing the pattern
-            
+
         Returns:
             Dictionary with pattern information
         """
@@ -926,11 +958,13 @@ class CodeAnalyzer:
             "line": getattr(node, "lineno", 0),
             "col": getattr(node, "col_offset", 0),
         }
-    
-    def _analyze_design_patterns(self, tree: ast.AST, relative_path: str, design_patterns: Dict, result: Dict) -> None:
+
+    def _analyze_design_patterns(
+        self, tree: ast.AST, relative_path: str, design_patterns: Dict, result: Dict
+    ) -> None:
         """
         Analyze design patterns in an AST.
-        
+
         Args:
             tree: AST to analyze
             relative_path: Relative path to the file
@@ -947,16 +981,20 @@ class CodeAnalyzer:
                                 pattern_name, "design_pattern", node, relative_path
                             )
                             result["pattern_locations"].append(pattern_info)
-                            result["design_patterns"][pattern_name].append(relative_path)
+                            result["design_patterns"][pattern_name].append(
+                                relative_path
+                            )
                     except Exception as e:
                         self.logger.warning(
                             f"Error analyzing pattern {pattern_name} in {relative_path}: {e}"
                         )
-    
-    def _analyze_anti_patterns(self, tree: ast.AST, relative_path: str, anti_patterns: Dict, result: Dict) -> None:
+
+    def _analyze_anti_patterns(
+        self, tree: ast.AST, relative_path: str, anti_patterns: Dict, result: Dict
+    ) -> None:
         """
         Analyze anti-patterns in an AST.
-        
+
         Args:
             tree: AST to analyze
             relative_path: Relative path to the file
@@ -978,11 +1016,13 @@ class CodeAnalyzer:
                         self.logger.warning(
                             f"Error analyzing anti-pattern {pattern_name} in {relative_path}: {e}"
                         )
-    
-    def _analyze_idioms(self, tree: ast.AST, relative_path: str, idioms: Dict, result: Dict) -> None:
+
+    def _analyze_idioms(
+        self, tree: ast.AST, relative_path: str, idioms: Dict, result: Dict
+    ) -> None:
         """
         Analyze common idioms in an AST.
-        
+
         Args:
             tree: AST to analyze
             relative_path: Relative path to the file
@@ -1001,11 +1041,11 @@ class CodeAnalyzer:
                     self.logger.warning(
                         f"Error analyzing idiom {idiom_name} in {relative_path}: {e}"
                     )
-    
+
     def _prepare_pattern_results_for_serialization(self, result: Dict) -> None:
         """
         Convert defaultdicts to regular dicts for serialization.
-        
+
         Args:
             result: Dictionary to prepare for serialization
         """
@@ -1024,7 +1064,7 @@ class CodeAnalyzer:
 
         # Create pattern definitions
         design_patterns, anti_patterns, idioms = self._create_pattern_definitions()
-        
+
         # Initialize result structure
         result = self._create_pattern_result_structure()
 
@@ -1035,10 +1075,12 @@ class CodeAnalyzer:
                 relative_path = str(file_path.relative_to(self.project_path))
 
                 # Analyze different pattern types
-                self._analyze_design_patterns(tree, relative_path, design_patterns, result)
+                self._analyze_design_patterns(
+                    tree, relative_path, design_patterns, result
+                )
                 self._analyze_anti_patterns(tree, relative_path, anti_patterns, result)
                 self._analyze_idioms(tree, relative_path, idioms, result)
-                
+
             except Exception as e:
                 self.logger.error(f"Error analyzing patterns in {file_path}: {e}")
 

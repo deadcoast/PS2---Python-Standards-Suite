@@ -43,10 +43,7 @@ class TaskManager:
         }
 
         # Apply config settings
-        self.settings = {**self.default_settings, **self.config.get(
-            "task_manager",
-            {})
-        }
+        self.settings = {**self.default_settings, **self.config.get("task_manager", {})}
 
         # Constants
         self.WARNING_DISABLED = "Task manager is disabled. Enabling for this run."
@@ -98,9 +95,9 @@ class TaskManager:
             "new_tasks": len(new_tasks),
             "updated_tasks": len(updated_tasks),
             "active_tasks": len([t for t in self._tasks if t["status"] == "open"]),
-            "tasks_by_priority": self._count_tasks_by_priority(),
-            "tasks_by_category": self._count_tasks_by_category(),
-            "tasks_by_status": self._count_tasks_by_status(),
+            "tasks_by_priority": self._count_tasks_by_priority().get("open", 0),
+            "tasks_by_category": self._count_tasks_by_category().get("open", 0),
+            "tasks_by_status": self._count_tasks_by_status().get("open", 0),
             "task_file": str(self._task_file_path.relative_to(self.project_path)),
         }
 

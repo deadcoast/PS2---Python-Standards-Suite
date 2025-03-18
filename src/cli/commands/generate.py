@@ -4,6 +4,7 @@ Generate Command Module for PS2 CLI.
 This module provides the 'generate' command for the PS2 CLI, allowing users
 to generate new Python projects with standardized structure from the command line.  # TODO: Line too long, needs manual fixing
 """
+
 import argparse
 import sys
 import traceback
@@ -66,10 +67,10 @@ class GenerateCommand:
             help="License to use for the project (default: MIT)",
         )
         parser.add_argument(
-            "--no-git", action = "store_true", help="Don't initialize Git repository"
+            "--no-git", action="store_true", help="Don't initialize Git repository"
         )
         parser.add_argument(
-            "--no-venv", action = "store_true", help="Don't create virtual environment"
+            "--no-venv", action="store_true", help="Don't create virtual environment"
         )
 
     @staticmethod
@@ -92,8 +93,7 @@ class GenerateCommand:
             ps2.config.get("project_generator", {})["author_email"] = args.email
 
         if args.license:
-            ps2.config.get("project_generator",
-                {})
+            ps2.config.get("project_generator", {})
 
         if args.no_git:
             ps2.config.get("project_generator", {})["initialize_git"] = False
@@ -116,7 +116,6 @@ class GenerateCommand:
         except Exception as e:
             print(f"Error generating project: {e}", file=sys.stderr)
             if args.verbose:
-
                 traceback.print_exc()
             return 1
 

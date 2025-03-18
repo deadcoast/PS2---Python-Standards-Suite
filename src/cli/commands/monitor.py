@@ -4,6 +4,7 @@ Monitor Command Module for PS2 CLI.
 This module provides the 'monitor' command for the PS2 CLI, allowing users
 to monitor code performance from the command line.
 """
+
 import time
 import argparse
 import sys
@@ -68,7 +69,7 @@ class MonitorCommand:
     def _configure_monitoring(ps2, args):
         """
         Configure monitoring options based on command-line arguments.
-        
+
         Args:
             ps2: Initialized PS2 instance.
             args: Parsed command-line arguments.
@@ -77,7 +78,7 @@ class MonitorCommand:
             # Enable memory tracking
             memory_config = ps2.config.get("performance_monitor", {})
             memory_config["track_memory_usage"] = True
-            
+
         if args.time:
             # Enable execution time tracking
             time_config = ps2.config.get("performance_monitor", {})
@@ -87,14 +88,14 @@ class MonitorCommand:
     def _handle_live_monitoring(ps2, args):
         """
         Handle live monitoring of performance metrics.
-        
+
         Args:
             ps2: Initialized PS2 instance.
             args: Parsed command-line arguments.
-            
+
         Returns:
             Result dictionary with monitoring data.
-            
+
         Raises:
             Exception: If monitoring fails.
         """
@@ -108,7 +109,7 @@ class MonitorCommand:
         # Display live updates
         start_time = time.time()
         end_time = start_time + args.duration
-        
+
         try:
             # Main monitoring loop
             while time.time() < end_time:
@@ -119,16 +120,20 @@ class MonitorCommand:
             print("\nMonitoring stopped by user")
 
         # Stop monitoring and get final results
-        if monitor_thread and isinstance(monitor_thread, dict) and monitor_thread.get("thread"):
+        if (
+            monitor_thread
+            and isinstance(monitor_thread, dict)
+            and monitor_thread.get("thread")
+        ):
             ps2.stop_monitoring(thread=monitor_thread.get("thread"))
-        
+
         return ps2.stop_monitoring()
 
     @staticmethod
     def _display_current_metrics(ps2, start_time):
         """
         Display current performance metrics.
-        
+
         Args:
             ps2: Initialized PS2 instance.
             start_time: Time when monitoring started.
@@ -138,7 +143,9 @@ class MonitorCommand:
 
         # Clear screen and display metrics
         print("\033c", end="")  # Clear screen
-        print(f"Performance Monitoring (running for {int(time.time() - start_time)} seconds)")
+        print(
+            f"Performance Monitoring (running for {int(time.time() - start_time)} seconds)"
+        )
         print("-" * 50)
 
         if current_metrics:
@@ -151,14 +158,14 @@ class MonitorCommand:
     def _handle_regular_monitoring(ps2, args):
         """
         Handle regular (non-live) monitoring.
-        
+
         Args:
             ps2: Initialized PS2 instance.
             args: Parsed command-line arguments.
-            
+
         Returns:
             Result dictionary with monitoring data.
-            
+
         Raises:
             Exception: If monitoring fails.
         """
@@ -173,14 +180,14 @@ class MonitorCommand:
         print(f"Monitoring for {args.duration} seconds...")
         result = ps2.monitor_performance(duration=args.duration)
         print("Monitoring complete")
-        
+
         return result
 
     @staticmethod
     def _output_results(result, args):
         """
         Format and output monitoring results.
-        
+
         Args:
             result: Monitoring result dictionary.
             args: Parsed command-line arguments.
@@ -199,12 +206,12 @@ class MonitorCommand:
     def _handle_error(error: Exception, error_type: str, verbose: bool) -> int:
         """
         Handle errors during command execution.
-        
+
         Args:
             error: The exception that occurred.
             error_type: Description of what was happening when the error occurred.
             verbose: Whether to print the full traceback.
-            
+
         Returns:
             Exit code (always 1 for errors).
         """
@@ -212,20 +219,20 @@ class MonitorCommand:
         if verbose:
             traceback.print_exc()
         return 1
-    
+
     @staticmethod
     def _process_monitoring_result(result: Dict[str, Any]) -> int:
         """
         Process monitoring result and determine exit code.
-        
+
         Args:
             result: Monitoring result dictionary.
-            
+
         Returns:
             Exit code (0 for success, non-zero for failure).
         """
         return 0 if result.get("status") in ["pass", "fixed", "info"] else 1
-    
+
     @staticmethod
     def execute(args: argparse.Namespace, ps2: Any) -> int:
         """
@@ -247,13 +254,13 @@ class MonitorCommand:
                 result = MonitorCommand._handle_live_monitoring(ps2, args)
             else:
                 result = MonitorCommand._handle_regular_monitoring(ps2, args)
-            
+
             # Output the results
             MonitorCommand._output_results(result, args)
-            
+
             # Return appropriate exit code
             return MonitorCommand._process_monitoring_result(result)
-            
+
         except Exception as e:
             error_type = "live monitoring" if args.live else "monitoring performance"
             return MonitorCommand._handle_error(e, error_type, args.verbose)

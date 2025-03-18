@@ -46,10 +46,10 @@ def format_result(result: Dict[str, Any], format_type: str) -> str:
 def _format_header(result: Dict[str, Any]) -> list:
     """
     Format the header (status and message) of a result.
-    
+
     Args:
         result: Result dictionary to format.
-        
+
     Returns:
         List of formatted header lines.
     """
@@ -59,18 +59,18 @@ def _format_header(result: Dict[str, Any]) -> list:
 
     if "message" in result:
         lines.append(f"Message: {result['message']}")
-        
+
     return lines
 
 
 def _format_dict_value(key: str, value: dict) -> list:
     """
     Format a dictionary value.
-    
+
     Args:
         key: The key of the dictionary in the result.
         value: The dictionary value to format.
-        
+
     Returns:
         List of formatted lines.
     """
@@ -82,11 +82,11 @@ def _format_dict_value(key: str, value: dict) -> list:
 def _format_list_value(key: str, value: list) -> list:
     """
     Format a list value.
-    
+
     Args:
         key: The key of the list in the result.
         value: The list value to format.
-        
+
     Returns:
         List of formatted lines.
     """
@@ -112,13 +112,13 @@ def _format_simple(result: Dict[str, Any]) -> str:
     """
     # Start with header information
     lines = _format_header(result)
-    
+
     # Process remaining fields
     for key, value in result.items():
         # Skip header fields that were already processed
         if key in ["status", "message"]:
             continue
-            
+
         # Format based on value type
         if isinstance(value, dict):
             lines.extend(_format_dict_value(key, value))
@@ -133,10 +133,10 @@ def _format_simple(result: Dict[str, Any]) -> str:
 def _format_colored_status(status: str) -> str:
     """
     Format a status string with appropriate color.
-    
+
     Args:
         status: Status string to format.
-        
+
     Returns:
         Colored status string.
     """
@@ -156,15 +156,15 @@ def _format_colored_status(status: str) -> str:
 def _format_pretty_header(result: Dict[str, Any]) -> list:
     """
     Format the header (status and message) of a result with color.
-    
+
     Args:
         result: Result dictionary to format.
-        
+
     Returns:
         List of formatted header lines.
     """
     lines = []
-    
+
     # Add status with color
     if "status" in result:
         status_str = _format_colored_status(result["status"])
@@ -173,23 +173,23 @@ def _format_pretty_header(result: Dict[str, Any]) -> list:
     # Add message
     if "message" in result:
         lines.append(f"Message: {result['message']}")
-        
+
     return lines
 
 
 def _format_pretty_dict(key: str, value: dict) -> list:
     """
     Format a dictionary value with color.
-    
+
     Args:
         key: The key of the dictionary in the result.
         value: The dictionary value to format.
-        
+
     Returns:
         List of formatted lines.
     """
     lines = [f"\n{Fore.CYAN}{key}:{Style.RESET_ALL}"]
-    
+
     for k, v in value.items():
         # Format nested dictionaries recursively
         if isinstance(v, dict):
@@ -197,23 +197,23 @@ def _format_pretty_dict(key: str, value: dict) -> list:
             lines.extend(f"    {nk}: {_format_value(nv)}" for nk, nv in v.items())
         else:
             lines.append(f"  {k}: {_format_value(v)}")
-            
+
     return lines
 
 
 def _format_pretty_list(key: str, value: list) -> list:
     """
     Format a list value with color.
-    
+
     Args:
         key: The key of the list in the result.
         value: The list value to format.
-        
+
     Returns:
         List of formatted lines.
     """
     lines = [f"\n{Fore.CYAN}{key}:{Style.RESET_ALL}"]
-    
+
     if value:
         for i, item in enumerate(value):
             if isinstance(item, dict):
@@ -224,7 +224,7 @@ def _format_pretty_list(key: str, value: list) -> list:
                 lines.append(f"  {_format_value(item)}")
     else:
         lines.append("  (empty)")
-        
+
     return lines
 
 
@@ -244,13 +244,13 @@ def _format_pretty(result: Dict[str, Any]) -> str:
 
     # Start with header information
     lines = _format_pretty_header(result)
-    
+
     # Process remaining fields
     for key, value in result.items():
         # Skip header fields that were already processed
         if key in ["status", "message"]:
             continue
-            
+
         # Format based on value type
         if isinstance(value, dict):
             lines.extend(_format_pretty_dict(key, value))
@@ -265,23 +265,27 @@ def _format_pretty(result: Dict[str, Any]) -> str:
 def _format_boolean(value: bool) -> str:
     """
     Format a boolean value with color.
-    
+
     Args:
         value: Boolean value to format.
-        
+
     Returns:
         Formatted string with color.
     """
-    return f"{Fore.GREEN}True{Style.RESET_ALL}" if value else f"{Fore.RED}False{Style.RESET_ALL}"
+    return (
+        f"{Fore.GREEN}True{Style.RESET_ALL}"
+        if value
+        else f"{Fore.RED}False{Style.RESET_ALL}"
+    )
 
 
 def _format_number(value: Union[int, float]) -> str:
     """
     Format a numeric value with color.
-    
+
     Args:
         value: Numeric value to format.
-        
+
     Returns:
         Formatted string with color.
     """
@@ -291,15 +295,15 @@ def _format_number(value: Union[int, float]) -> str:
 def _format_status_string(value: str) -> Optional[str]:
     """
     Format a string that represents a status with appropriate color.
-    
+
     Args:
         value: String value to check and format.
-        
+
     Returns:
         Formatted string with color if it's a status string, None otherwise.
     """
     lower_value = value.lower()
-    
+
     if lower_value in ["pass", "fixed", "ok", "success"]:
         return f"{Fore.GREEN}{value}{Style.RESET_ALL}"
     elif lower_value in ["fail", "error", "critical"]:
@@ -308,17 +312,17 @@ def _format_status_string(value: str) -> Optional[str]:
         return f"{Fore.YELLOW}{value}{Style.RESET_ALL}"
     elif lower_value in ["info", "low"]:
         return f"{Fore.BLUE}{value}{Style.RESET_ALL}"
-    
+
     return None
 
 
 def _format_code_string(value: str) -> Optional[str]:
     """
     Format a string that represents code or a file path.
-    
+
     Args:
         value: String value to check and format.
-        
+
     Returns:
         Formatted string with color if it's code-related, None otherwise.
     """
@@ -326,7 +330,7 @@ def _format_code_string(value: str) -> Optional[str]:
         return f"{Fore.MAGENTA}{value}{Style.RESET_ALL}"
     if "def " in value or "class " in value or "import " in value:
         return f"{Fore.MAGENTA}{value}{Style.RESET_ALL}"
-    
+
     return None
 
 
@@ -354,7 +358,7 @@ def _format_value(value: Any) -> str:
         # Try formatting as status or code string using walrus operator
         if formatted := _format_status_string(value):
             return formatted
-            
+
         if formatted := _format_code_string(value):
             return formatted
 

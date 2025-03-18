@@ -43,13 +43,13 @@ class AnalyzeCommand:
             "--output-file", "-f", help="Output file path (default: stdout)"
         )
         parser.add_argument(
-            "--modules", "-m", action = "store_true", help="Analyze module structure"
+            "--modules", "-m", action="store_true", help="Analyze module structure"
         )
         parser.add_argument(
-            "--complexity", "-c", action = "store_true", help="Analyze code complexity"
+            "--complexity", "-c", action="store_true", help="Analyze code complexity"
         )
         parser.add_argument(
-            "--dependencies", "-d", action = "store_true", help="Analyze dependencies"
+            "--dependencies", "-d", action="store_true", help="Analyze dependencies"
         )
         parser.add_argument("--all", "-a", action="store_true", help="Run all analyses")
 
